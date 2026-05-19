@@ -19,7 +19,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "name": "git_status",
         "title": "Git Status",
-        "description": "Return a redacted, read-only status summary for an explicitly allowlisted local Git repo.",
+        "description": "Return a redacted, read-only status summary for an explicitly allowed local Git repo.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -32,7 +32,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "name": "git_diff_summary",
         "title": "Git Diff Summary",
-        "description": "Return redacted file-level diff counts for an explicitly allowlisted local Git repo.",
+        "description": "Return redacted file-level diff counts for an explicitly allowed local Git repo.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -90,7 +90,8 @@ def handle_request(message: dict[str, Any], codex_safe_git: CodexSafeGit | None 
                 "serverInfo": SERVER_INFO,
                 "instructions": (
                     "Use only git_status, git_diff_summary, ensure_commit_branch, and commit_files. "
-                    "Repos must be explicitly allowlisted by environment."
+                    "Repos must be explicitly allowlisted by environment or be exact Git worktree "
+                    "roots under an explicit allowed repo root."
                 ),
             },
         )

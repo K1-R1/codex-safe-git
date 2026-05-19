@@ -16,7 +16,10 @@ class CodexSafeGitRefusal(Exception):
 
 
 AI_ATTRIBUTION = re.compile(
-    r"\b(codex|chatgpt|openai)\b|generated[- ]?by|co-authored-by:",
+    r"(generated[- ]?by\s+(codex|chatgpt|openai)|"
+    r"co-authored-by:.*\b(codex|chatgpt|openai)\b|"
+    r"\b(via|with|using)\s+(codex|chatgpt|openai)\b|"
+    r"\b(codex|chatgpt|openai)\s+(generated|assisted|authored)\b)",
     re.IGNORECASE,
 )
 
@@ -90,24 +93,51 @@ REMOTE_LIKE_BRANCH_PREFIXES = {"origin", "upstream", "remotes"}
 class CodexSafeGitConfig:
     allowed_repos: frozenset[Path]
     audit_log: Path
+    allowed_repo_roots: frozenset[Path] = frozenset()
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> "CodexSafeGitConfig":
         source = os.environ if env is None else env
         allowed_raw = source.get("CODEX_SAFE_GIT_ALLOWED_REPOS", "")
+        allowed_roots_raw = source.get("CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS", "")
         audit_raw = source.get("CODEX_SAFE_GIT_AUDIT_LOG", "")
-        if not allowed_raw.strip():
-            raise CodexSafeGitRefusal("CODEX_SAFE_GIT_ALLOWED_REPOS is required")
+        if not allowed_raw.strip() and not allowed_roots_raw.strip():
+            raise CodexSafeGitRefusal(
+                "CODEX_SAFE_GIT_ALLOWED_REPOS or CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS is required"
+            )
         if not audit_raw.strip():
             raise CodexSafeGitRefusal("CODEX_SAFE_GIT_AUDIT_LOG is required")
-        allowed = frozenset(
-            Path(item).expanduser().resolve()
-            for item in allowed_raw.split(os.pathsep)
-            if item.strip()
+        allowed = _pathset_from_env(allowed_raw)
+        allowed_roots = frozenset(
+            _normalise_repo_root(path) for path in _pathset_from_env(allowed_roots_raw)
         )
-        if not allowed:
-            raise CodexSafeGitRefusal("CODEX_SAFE_GIT_ALLOWED_REPOS has no usable entries")
-        return cls(allowed_repos=allowed, audit_log=Path(audit_raw).expanduser().resolve())
+        if not allowed and not allowed_roots:
+            raise CodexSafeGitRefusal("allowed repo configuration has no usable entries")
+        return cls(
+            allowed_repos=allowed,
+            allowed_repo_roots=allowed_roots,
+            audit_log=Path(audit_raw).expanduser().resolve(),
+        )
+
+
+def _pathset_from_env(raw: str) -> frozenset[Path]:
+    return frozenset(Path(item).expanduser().resolve() for item in raw.split(os.pathsep) if item.strip())
+
+
+def _normalise_repo_root(path: Path) -> Path:
+    if path == path.parent:
+        raise CodexSafeGitRefusal("allowed repo root must not be the filesystem root")
+    if not path.exists() or not path.is_dir():
+        raise CodexSafeGitRefusal(f"allowed repo root does not exist or is not a directory: {path}")
+    return path
+
+
+def _path_within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
 
 
 class CodexSafeGit:
@@ -291,9 +321,11 @@ class CodexSafeGit:
 
     def _resolve_allowed_repo(self, repo_path: str) -> Path:
         repo = Path(repo_path).expanduser().resolve()
-        if repo not in self.config.allowed_repos:
-            raise CodexSafeGitRefusal("repo_path is not explicitly allowlisted")
-        return repo
+        if repo in self.config.allowed_repos:
+            return repo
+        if any(_path_within(repo, root) for root in self.config.allowed_repo_roots):
+            return repo
+        raise CodexSafeGitRefusal("repo_path is not explicitly allowlisted or under an allowed repo root")
 
     def _require_git_repo(self, repo: Path) -> None:
         if not repo.exists() or not repo.is_dir():

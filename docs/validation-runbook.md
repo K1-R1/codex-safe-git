@@ -16,7 +16,8 @@ sandboxed Codex app shell that cannot read `~/.codex`.
 - Set `mcp_servers.codex_safe_git.default_tools_approval_mode = "approve"` for this server only. This
   does not change the global approval policy or sandbox mode; it lets non-interactive `codex exec`
   use the deliberately narrow codex-safe-git surface.
-- Allowlist only the repo or disposable repo being tested.
+- Allowlist exact repos for narrow tests, or explicit repo roots such as the Codex worktree root and
+  local projects root for default day-to-day use. Do not use `/` or broad system directories.
 - Use an explicit audit log path and remove temporary audit logs after review.
 
 ## Local Codex Safe Git Tests
@@ -53,7 +54,7 @@ Expected evidence:
 - `enabled_tools` is exactly `["git_status", "git_diff_summary", "commit_files", "ensure_commit_branch"]`.
 - `default_tools_approval_mode` is `approve`, or each of the four enabled tools has
   `approval_mode = "approve"`.
-- The allowlist and audit log paths are explicit.
+- The exact repo allowlist and/or allowed repo roots are explicit, and the audit log path is explicit.
 - No broader Git, shell, network, push, pull, reset, merge, rebase, remote, deploy, PR, or publish
   tools are exposed.
 
@@ -84,6 +85,7 @@ Use disposable repos or clean states for refusal checks:
 - `ensure_commit_branch(..., "master")` is refused.
 - `ensure_commit_branch(..., "origin/unsafe")` is refused.
 - Unallowlisted repo paths are refused.
+- Paths under allowed repo roots that are not exact Git worktree roots are refused.
 - Detached `commit_files` without branch preparation is refused.
 
 ## Cleanup

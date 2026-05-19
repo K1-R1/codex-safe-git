@@ -77,7 +77,8 @@ class CodexSafeGitMcpTests(GitRepoTestCase):
     def test_stdio_server_round_trip(self) -> None:
         self.write_file("stdio.txt", "stdio\n")
         env = os.environ.copy()
-        env["CODEX_SAFE_GIT_ALLOWED_REPOS"] = str(self.repo)
+        env.pop("CODEX_SAFE_GIT_ALLOWED_REPOS", None)
+        env["CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS"] = str(self.root)
         env["CODEX_SAFE_GIT_AUDIT_LOG"] = str(self.audit_log)
         env["PYTHONPATH"] = "src"
         payloads = [

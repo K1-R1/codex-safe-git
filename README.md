@@ -11,8 +11,10 @@ It is intentionally not a general Git automation server. It exposes only:
 
 ## Safety Defaults
 
-- Fails closed unless `CODEX_SAFE_GIT_ALLOWED_REPOS` and `CODEX_SAFE_GIT_AUDIT_LOG` are set.
-- Requires exact allowlist matches after path resolution.
+- Fails closed unless `CODEX_SAFE_GIT_ALLOWED_REPOS` and/or
+  `CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS`, plus `CODEX_SAFE_GIT_AUDIT_LOG`, are set.
+- Requires exact repo allowlist matches or an exact Git worktree root beneath an explicit allowed
+  repo root after path resolution.
 - Refuses ambiguous Git states, pre-existing staged changes, protected default-branch commits, unsafe paths, likely secrets, attribution-bearing messages, unexpected MCP arguments, and execution-capable Git configuration.
 - Can attach a detached worktree to an explicit safe local non-default branch at current `HEAD` before committing.
 - Uses fixed Git subprocess arguments only.
@@ -34,6 +36,7 @@ From this directory:
 ```sh
 PYTHONPATH=src \
 CODEX_SAFE_GIT_ALLOWED_REPOS=/absolute/path/to/repo \
+CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS=/absolute/path/to/codex/worktrees:/absolute/path/to/projects \
 CODEX_SAFE_GIT_AUDIT_LOG=/absolute/path/to/audit.jsonl \
 python3 -m codex_safe_git
 ```
@@ -57,5 +60,10 @@ python3 -m unittest discover -s tests -v
 ## Codex MCP Configuration
 
 See [docs/codex-config-example.toml](docs/codex-config-example.toml). The example is intentionally not installed automatically.
+
+For day-to-day Codex use, configure one local MCP registration and set
+`CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS` to explicit project containers, such as the Codex worktree root
+and your local projects root. This makes `codex_safe_git` available across projects while still
+requiring each request to name an exact Git worktree root.
 
 For end-to-end app and CLI proof steps, see [docs/validation-runbook.md](docs/validation-runbook.md).

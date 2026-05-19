@@ -7,7 +7,7 @@ the `workspace-write` sandbox and the narrow MCP surface.
 
 Proven behaviours:
 
-- The local test suite passes: compile checks plus 23 unit, integration, and MCP tests.
+- The local test suite passes: compile checks plus 28 unit, integration, and MCP tests.
 - Codex app can call the live `codex_safe_git` MCP tools against this linked worktree.
 - A detached linked worktree can be attached to a non-default branch with `ensure_commit_branch`.
 - `commit_files` can commit exact listed files on a non-default Codex worktree branch.
@@ -17,6 +17,8 @@ Proven behaviours:
 - Codex CLI can commit an exact file through `codex_safe_git` with `--sandbox workspace-write`.
 - Audit logs contain metadata only: action, result, repo, branch, filenames, counts, refusal
   reasons, and commit hashes where applicable.
+- The server supports explicit allowed repo roots, so one MCP registration can cover Codex worktrees
+  and local project containers without allowing arbitrary Git or shell.
 
 Validation commits:
 
@@ -39,8 +41,8 @@ the normal `workspace-write` sandbox and current permission model.
 
 Future work should optimise for:
 
-- availability across all local Codex projects without copying the subproject into every repo
-- clear per-project allowlist and audit-log configuration
+- installation outside a single Codex worktree so the server path is stable across all projects
+- clear per-machine allowed-root and audit-log configuration
 - team-member installation and update workflows
 - hardening suitable for eventual open-source release
 - safe, best-practice local Git hygiene for Codex during long-running implementation work

@@ -49,7 +49,8 @@ No project, user, MCP, plugin, hook, rule, AGENTS, app, permission, sandbox, or 
 - Likely secret material in requested additions is refused.
 - The tool stages only listed files and verifies the staged set exactly before committing.
 - Empty commits are refused.
-- Commit messages with Codex/OpenAI/ChatGPT/generated-by/co-authored attribution are refused.
+- Commit messages with generated-by/co-authored/via/using attribution phrases mentioning
+  Codex/OpenAI/ChatGPT are refused.
 - Git subprocesses use fixed argument lists, disabled hooks, no credential helper, no terminal prompting, no external diff, no signing, and no network-oriented Git operations.
 - Audit records only timestamp, action, result, repo, files, commit hash where applicable, counts, and refusal reason.
 
