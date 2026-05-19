@@ -17,6 +17,8 @@ Proven behaviours:
 - Codex CLI can commit an exact file through `codex_safe_git` with `--sandbox workspace-write`.
 - The active local MCP config uses explicit allowed repo roots for Codex worktrees and local project
   containers, not one-off per-worktree allowlists.
+- The active local MCP config points at a stable wrapper under `~/.codex/tools/codex-safe-git`
+  instead of a disposable Codex worktree checkout.
 - Audit logs contain metadata only: action, result, repo, branch, filenames, counts, refusal
   reasons, and commit hashes where applicable.
 - The server supports explicit allowed repo roots, so one MCP registration can cover Codex worktrees
@@ -44,7 +46,6 @@ the normal `workspace-write` sandbox and current permission model.
 
 Future work should optimise for:
 
-- installation outside a single Codex worktree so the server path is stable across all projects
 - clear per-machine allowed-root and audit-log configuration
 - team-member installation and update workflows
 - hardening suitable for eventual open-source release
@@ -52,8 +53,6 @@ Future work should optimise for:
 
 ### Next Engineering Work
 
-- Decide whether codex-safe-git should stay as a repo-local subproject, move into a shared local tools
-  repo, or become an installable local package.
 - Add packaging/release polish for reuse outside this workspace.
 - Add an operator guide for updating allowlists, audit log paths, and per-project MCP config safely.
 - Choose a long-lived audit log strategy instead of `/private/tmp` if retention is desired.

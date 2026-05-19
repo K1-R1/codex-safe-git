@@ -8,6 +8,8 @@ sandboxed Codex app shell that cannot read `~/.codex`.
 
 - Do not enable Full Access or `--dangerously-bypass-approvals-and-sandbox`.
 - Keep the Codex sandbox at `workspace-write`.
+- Install the server to a stable local tool path with `scripts/install-local.sh`; do not point the
+  active MCP config at a disposable Codex worktree.
 - Keep the `codex_safe_git` MCP entry limited to:
   - `git_status`
   - `git_diff_summary`
@@ -50,7 +52,9 @@ codex mcp list
 
 Expected evidence:
 
-- `codex_safe_git` uses the local `codex-safe-git` server.
+- `codex_safe_git` uses the stable local wrapper, for example
+  `~/.codex/tools/codex-safe-git/bin/codex-safe-git-mcp`.
+- The MCP entry does not depend on a repo-local `cwd` or `PYTHONPATH`.
 - `enabled_tools` is exactly `["git_status", "git_diff_summary", "commit_files", "ensure_commit_branch"]`.
 - `default_tools_approval_mode` is `approve`, or each of the four enabled tools has
   `approval_mode = "approve"`.

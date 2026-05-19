@@ -61,9 +61,23 @@ python3 -m unittest discover -s tests -v
 
 See [docs/codex-config-example.toml](docs/codex-config-example.toml). The example is intentionally not installed automatically.
 
+For a stable local setup that works from any Codex app or CLI session, install a copy under
+`~/.codex/tools/codex-safe-git`:
+
+```sh
+scripts/install-local.sh
+```
+
+The script copies this server to the stable tool path, creates a fixed
+`codex-safe-git-mcp` wrapper, and prints the MCP config block to use.
+
 For day-to-day Codex use, configure one local MCP registration and set
 `CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS` to explicit project containers, such as the Codex worktree root
 and your local projects root. This makes `codex_safe_git` available across projects while still
 requiring each request to name an exact Git worktree root.
+
+The recommended config uses server-local `default_tools_approval_mode = "approve"` for the four
+safe-git tools only. This keeps non-interactive Codex CLI runs usable without changing global
+approval policy, sandbox mode, or the narrow MCP surface.
 
 For end-to-end app and CLI proof steps, see [docs/validation-runbook.md](docs/validation-runbook.md).

@@ -1,9 +1,7 @@
 # Example only. Do not paste blindly; set paths for your local machine.
 
 [mcp_servers.codex_safe_git]
-command = "python3"
-args = ["-m", "codex_safe_git"]
-cwd = "/absolute/path/to/codex-app-setup/codex-safe-git"
+command = "/Users/you/.codex/tools/codex-safe-git/bin/codex-safe-git-mcp"
 enabled_tools = ["git_status", "git_diff_summary", "commit_files", "ensure_commit_branch"]
 # Codex Safe Git exposes only deterministic, allowlisted local operations; approving this server's
 # narrow tool surface lets non-interactive `codex exec` use it without changing the global approval
@@ -11,7 +9,6 @@ enabled_tools = ["git_status", "git_diff_summary", "commit_files", "ensure_commi
 default_tools_approval_mode = "approve"
 
 [mcp_servers.codex_safe_git.env]
-PYTHONPATH = "src"
 # Exact repo allowlist remains supported for especially sensitive or one-off repos.
 CODEX_SAFE_GIT_ALLOWED_REPOS = "/absolute/path/to/allowed/repo"
 # Allowed repo roots make the server usable across Codex worktrees and local project folders without
