@@ -7,8 +7,10 @@ the `workspace-write` sandbox and the narrow MCP surface.
 
 Proven behaviours:
 
-- The local test suite passes: compile checks plus 28 unit, integration, and MCP tests.
-- Codex app can call the live `codex_safe_git` MCP tools against this linked worktree.
+- The local verification suite passes: compile checks plus 43 unit, integration, MCP, contract,
+  and installer tests.
+- Codex app can call the live `codex_safe_git` MCP tools against linked worktrees and disposable
+  validation repos.
 - A detached linked worktree can be attached to a non-default branch with `ensure_commit_branch`.
 - A clean worktree can create or switch to a safe non-default local branch at current `HEAD` with
   `create_commit_branch`.
@@ -16,9 +18,11 @@ Proven behaviours:
 - `merge_branch` can fast-forward a clean non-default local target branch from another local branch,
   including linked worktrees.
 - Commits on protected `main` and remote-like branch names are refused.
-- Codex CLI can call `git_status` and `git_diff_summary` through `codex_safe_git` with
+- Codex CLI can call `git_status`, `git_diff_summary`, `create_commit_branch`, `merge_branch`,
+  `commit_files`, and `ensure_commit_branch` through `codex_safe_git` with
   `--sandbox workspace-write`.
-- Codex CLI can commit an exact file through `codex_safe_git` with `--sandbox workspace-write`.
+- Codex CLI can refuse protected-branch merges, fast-forward non-default local branches, and commit
+  exact files through `codex_safe_git`.
 - The active local MCP config uses explicit allowed repo roots for Codex worktrees and local project
   containers, not one-off per-worktree allowlists.
 - The active local MCP config points at a stable wrapper under `~/.codex/tools/codex-safe-git`
@@ -27,7 +31,10 @@ Proven behaviours:
   reasons, and commit hashes where applicable.
 - The server supports explicit allowed repo roots, so one MCP registration can cover Codex worktrees
   and local project containers without allowing arbitrary Git or shell.
-- The stable installer supports dry-run and config-only output for first-time private/team setup.
+- The stable installer supports dry-run, config-only output, version reporting, explicit overrides,
+  and idempotent update behaviour for first-time private/team setup.
+- The private/team operator guide, validation runbook, MCP contract notes, and schema snapshot are
+  present.
 
 Validation commits:
 
@@ -41,7 +48,7 @@ Validation commits:
 
 ## Remaining Work
 
-These are intentionally deferred beyond the proven MVP/MCP integration.
+These are intentionally deferred beyond the private/team local production hardening gate.
 
 ### Product Direction
 
@@ -59,12 +66,9 @@ Future work should optimise for:
 ### Next Engineering Work
 
 - Add packaging/release polish for reuse outside this workspace.
-- Add an operator guide for updating allowlists, audit log paths, and per-project MCP config safely.
-- Choose a long-lived audit log strategy instead of `/private/tmp` if retention is desired.
-- Add structured JSON schema snapshots for MCP tool outputs if external clients will depend on the
-  response shape.
 - Add CI coverage in an environment with Git and Python available.
-- Add a team onboarding guide once the installation/update path is chosen.
+- Add a team onboarding guide and update policy around the stable local installer.
+- Decide retention, rotation, and review policy for `~/.codex/log/codex-safe-git-audit.jsonl`.
 - Prepare open-source readiness only after hardening: licence, security policy, contribution guide,
   threat model, reproducible tests, and clear non-goals.
 
