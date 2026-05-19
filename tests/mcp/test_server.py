@@ -74,6 +74,53 @@ class CodexSafeGitMcpTests(GitRepoTestCase):
         self.assertEqual(result["structuredContent"]["result"], "ok")
         self.assertEqual(result["structuredContent"]["branch"], "codex/mcp-prepared")
 
+    def test_create_commit_branch_tool_call(self) -> None:
+        response = handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {
+                    "name": "create_commit_branch",
+                    "arguments": {
+                        "repo_path": str(self.repo),
+                        "branch_name": "codex/mcp-created",
+                    },
+                },
+            },
+            self.codex_safe_git,
+        )
+
+        result = response["result"]
+        self.assertEqual(result["structuredContent"]["result"], "ok")
+        self.assertEqual(result["structuredContent"]["branch"], "codex/mcp-created")
+        self.assertEqual(result["structuredContent"]["action"], "created")
+
+    def test_merge_branch_tool_call(self) -> None:
+        run(["git", "switch", "-c", "codex/mcp-source"], self.repo)
+        self.write_file("mcp-merge.txt", "mcp merge\n")
+        self.codex_safe_git.commit_files(str(self.repo), ["mcp-merge.txt"], "Add MCP merge source")
+        run(["git", "switch", "work"], self.repo)
+        response = handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {
+                    "name": "merge_branch",
+                    "arguments": {
+                        "repo_path": str(self.repo),
+                        "source_branch": "codex/mcp-source",
+                    },
+                },
+            },
+            self.codex_safe_git,
+        )
+
+        result = response["result"]
+        self.assertEqual(result["structuredContent"]["result"], "ok")
+        self.assertEqual(result["structuredContent"]["action"], "fast_forwarded")
+
     def test_stdio_server_round_trip(self) -> None:
         self.write_file("stdio.txt", "stdio\n")
         env = os.environ.copy()

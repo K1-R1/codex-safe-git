@@ -10,7 +10,11 @@ Proven behaviours:
 - The local test suite passes: compile checks plus 28 unit, integration, and MCP tests.
 - Codex app can call the live `codex_safe_git` MCP tools against this linked worktree.
 - A detached linked worktree can be attached to a non-default branch with `ensure_commit_branch`.
+- A clean worktree can create or switch to a safe non-default local branch at current `HEAD` with
+  `create_commit_branch`.
 - `commit_files` can commit exact listed files on a non-default Codex worktree branch.
+- `merge_branch` can fast-forward a clean non-default local target branch from another local branch,
+  including linked worktrees.
 - Commits on protected `main` and remote-like branch names are refused.
 - Codex CLI can call `git_status` and `git_diff_summary` through `codex_safe_git` with
   `--sandbox workspace-write`.
@@ -23,6 +27,7 @@ Proven behaviours:
   reasons, and commit hashes where applicable.
 - The server supports explicit allowed repo roots, so one MCP registration can cover Codex worktrees
   and local project containers without allowing arbitrary Git or shell.
+- The stable installer supports dry-run and config-only output for first-time private/team setup.
 
 Validation commits:
 

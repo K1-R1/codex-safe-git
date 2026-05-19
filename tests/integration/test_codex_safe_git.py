@@ -36,6 +36,12 @@ class CodexSafeGitCommitIntegrationTests(GitRepoTestCase):
         with self.assertRaisesRegex(CodexSafeGitRefusal, "protected branch: master"):
             self.codex_safe_git.commit_files(str(self.repo), ["master.txt"], "Try master commit")
 
+        run(["git", "switch", "-c", "trunk"], self.repo)
+        run(["git", "config", "init.defaultBranch", "trunk"], self.repo)
+        self.write_file("trunk.txt", "trunk\n")
+        with self.assertRaisesRegex(CodexSafeGitRefusal, "protected branch: trunk"):
+            self.codex_safe_git.commit_files(str(self.repo), ["trunk.txt"], "Try trunk commit")
+
     def test_commit_files_supports_tracked_deletions(self) -> None:
         self.write_file("old.txt", "old\n")
         self.codex_safe_git.commit_files(str(self.repo), ["old.txt"], "Add old file")
@@ -233,7 +239,7 @@ class CodexSafeGitCommitIntegrationTests(GitRepoTestCase):
         with self.assertRaisesRegex(CodexSafeGitRefusal, "not explicitly allowlisted"):
             self.codex_safe_git.ensure_commit_branch(str(outside), "codex/outside")
 
-        for branch in ("main", "master", "../bad", "origin/feature", "bad lock"):
+        for branch in ("main", "master", "../bad", "origin/feature", "bad lock", "abcdef1"):
             with self.subTest(branch=branch):
                 with self.assertRaises(CodexSafeGitRefusal):
                     self.codex_safe_git.ensure_commit_branch(str(self.repo), branch)
@@ -255,6 +261,146 @@ class CodexSafeGitCommitIntegrationTests(GitRepoTestCase):
         (git_dir / "MERGE_HEAD").write_text("0" * 40 + "\n", encoding="utf-8")
         with self.assertRaisesRegex(CodexSafeGitRefusal, "MERGE_HEAD"):
             self.codex_safe_git.ensure_commit_branch(str(self.repo), "codex/merge")
+
+    def test_create_commit_branch_from_current_head(self) -> None:
+        created = self.codex_safe_git.create_commit_branch(str(self.repo), "codex/new-work")
+
+        self.assertEqual(created["result"], "ok")
+        self.assertEqual(created["branch"], "codex/new-work")
+        self.assertEqual(created["action"], "created")
+        self.assertEqual(run(["git", "branch", "--show-current"], self.repo).stdout.strip(), "codex/new-work")
+
+        repeated = self.codex_safe_git.create_commit_branch(str(self.repo), "codex/new-work")
+        self.assertEqual(repeated["action"], "already_on_branch")
+        self.assertEqual(self.audit_entries()[-1]["action"], "create_commit_branch")
+
+    def test_create_commit_branch_refusals(self) -> None:
+        for branch in ("main", "master", "../bad", "origin/feature", "bad lock", "abcdef1"):
+            with self.subTest(branch=branch):
+                with self.assertRaises(CodexSafeGitRefusal):
+                    self.codex_safe_git.create_commit_branch(str(self.repo), branch)
+
+        run(["git", "config", "init.defaultBranch", "trunk"], self.repo)
+        with self.assertRaisesRegex(CodexSafeGitRefusal, "protected branch: trunk"):
+            self.codex_safe_git.create_commit_branch(str(self.repo), "trunk")
+
+        run(["git", "branch", "codex/old", "HEAD"], self.repo)
+        self.write_file("advance-branch.txt", "advance\n")
+        self.codex_safe_git.commit_files(str(self.repo), ["advance-branch.txt"], "Advance branch")
+        with self.assertRaisesRegex(CodexSafeGitRefusal, "different commit"):
+            self.codex_safe_git.create_commit_branch(str(self.repo), "codex/old")
+
+        self.write_file("staged-branch.txt", "staged\n")
+        run(["git", "add", "staged-branch.txt"], self.repo)
+        with self.assertRaisesRegex(CodexSafeGitRefusal, "already has staged changes"):
+            self.codex_safe_git.create_commit_branch(str(self.repo), "codex/staged")
+
+    def test_create_commit_branch_supports_detached_linked_worktree(self) -> None:
+        linked = self.root / "linked-create"
+        run(["git", "worktree", "add", "--detach", str(linked), "HEAD"], self.repo)
+        codex_safe_git = CodexSafeGit(
+            CodexSafeGitConfig(
+                allowed_repos=frozenset({self.repo.resolve(), linked.resolve()}),
+                audit_log=self.audit_log,
+            )
+        )
+
+        created = codex_safe_git.create_commit_branch(str(linked), "codex/linked-create")
+
+        self.assertEqual(created["action"], "created")
+        self.assertEqual(
+            run(["git", "branch", "--show-current"], linked).stdout.strip(),
+            "codex/linked-create",
+        )
+
+    def test_merge_branch_fast_forwards_non_default_target(self) -> None:
+        run(["git", "switch", "-c", "codex/source"], self.repo)
+        self.write_file("merge.txt", "merge\n")
+        self.codex_safe_git.commit_files(str(self.repo), ["merge.txt"], "Add merge source")
+        source_head = run(["git", "rev-parse", "HEAD"], self.repo).stdout.strip()
+        run(["git", "switch", "work"], self.repo)
+
+        merged = self.codex_safe_git.merge_branch(str(self.repo), "codex/source")
+
+        self.assertEqual(merged["result"], "ok")
+        self.assertEqual(merged["source_branch"], "codex/source")
+        self.assertEqual(merged["target_branch"], "work")
+        self.assertEqual(merged["target_head_after"], source_head)
+        self.assertEqual(merged["action"], "fast_forwarded")
+        self.assertEqual(run(["git", "status", "--short"], self.repo).stdout, "")
+        self.assertEqual(self.audit_entries()[-1]["action"], "merge_branch")
+        self.assertNotIn("diff", self.audit_entries()[-1])
+        self.assertNotIn("content", self.audit_entries()[-1])
+
+    def test_merge_branch_fast_forwards_linked_worktree(self) -> None:
+        run(["git", "switch", "-c", "codex/linked-source"], self.repo)
+        self.write_file("linked-merge.txt", "linked merge\n")
+        self.codex_safe_git.commit_files(
+            str(self.repo),
+            ["linked-merge.txt"],
+            "Add linked merge source",
+        )
+        source_head = run(["git", "rev-parse", "HEAD"], self.repo).stdout.strip()
+        run(["git", "switch", "work"], self.repo)
+        linked = self.root / "linked-merge"
+        run(["git", "worktree", "add", "-b", "codex/linked-target", str(linked), "HEAD"], self.repo)
+        codex_safe_git = CodexSafeGit(
+            CodexSafeGitConfig(
+                allowed_repos=frozenset({self.repo.resolve(), linked.resolve()}),
+                audit_log=self.audit_log,
+            )
+        )
+
+        merged = codex_safe_git.merge_branch(str(linked), "codex/linked-source")
+
+        self.assertEqual(merged["action"], "fast_forwarded")
+        self.assertEqual(merged["target_branch"], "codex/linked-target")
+        self.assertEqual(merged["target_head_after"], source_head)
+        self.assertEqual(run(["git", "branch", "--show-current"], linked).stdout.strip(), "codex/linked-target")
+
+    def test_merge_branch_refusals(self) -> None:
+        run(["git", "branch", "codex/source", "HEAD"], self.repo)
+
+        run(["git", "switch", "main"], self.repo)
+        with self.assertRaisesRegex(CodexSafeGitRefusal, "protected target branch: main"):
+            self.codex_safe_git.merge_branch(str(self.repo), "codex/source")
+        run(["git", "switch", "work"], self.repo)
+
+        run(["git", "switch", "-c", "trunk"], self.repo)
+        run(["git", "config", "init.defaultBranch", "trunk"], self.repo)
+        with self.assertRaisesRegex(CodexSafeGitRefusal, "protected target branch: trunk"):
+            self.codex_safe_git.merge_branch(str(self.repo), "codex/source")
+        run(["git", "switch", "work"], self.repo)
+
+        for branch in ("origin/feature", "../bad", "bad lock", "abcdef1"):
+            with self.subTest(branch=branch):
+                with self.assertRaises(CodexSafeGitRefusal):
+                    self.codex_safe_git.merge_branch(str(self.repo), branch)
+
+        with self.assertRaisesRegex(CodexSafeGitRefusal, "source_branch and target_branch must differ"):
+            self.codex_safe_git.merge_branch(str(self.repo), "work")
+
+        with self.assertRaisesRegex(CodexSafeGitRefusal, "target_branch must match"):
+            self.codex_safe_git.merge_branch(str(self.repo), "codex/source", "codex/other")
+
+        self.write_file("dirty.txt", "dirty\n")
+        with self.assertRaisesRegex(CodexSafeGitRefusal, "must be clean"):
+            self.codex_safe_git.merge_branch(str(self.repo), "codex/source")
+
+    def test_merge_branch_refuses_diverged_history_without_mutating(self) -> None:
+        run(["git", "switch", "-c", "codex/source"], self.repo)
+        self.write_file("source.txt", "source\n")
+        self.codex_safe_git.commit_files(str(self.repo), ["source.txt"], "Advance source")
+        run(["git", "switch", "work"], self.repo)
+        self.write_file("target.txt", "target\n")
+        self.codex_safe_git.commit_files(str(self.repo), ["target.txt"], "Advance target")
+        before = run(["git", "rev-parse", "HEAD"], self.repo).stdout.strip()
+
+        with self.assertRaisesRegex(CodexSafeGitRefusal, "ff-only|fast-forward|Not possible"):
+            self.codex_safe_git.merge_branch(str(self.repo), "codex/source")
+
+        self.assertEqual(run(["git", "rev-parse", "HEAD"], self.repo).stdout.strip(), before)
+        self.assertEqual(run(["git", "status", "--short"], self.repo).stdout, "")
 
     def test_exact_file_staging_and_audit_after_branch_preparation(self) -> None:
         run(["git", "switch", "--detach", "HEAD"], self.repo)

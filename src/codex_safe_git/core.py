@@ -195,10 +195,11 @@ class CodexSafeGit:
     def ensure_commit_branch(self, repo_path: str, branch_name: str) -> dict[str, Any]:
         branch = ""
         try:
-            branch = self._normalise_branch_name(branch_name)
             repo = self._resolve_allowed_repo(repo_path)
+            branch = self._normalise_branch_name(branch_name)
             self._require_git_repo(repo)
             self._require_no_execution_config(repo)
+            self._require_branch_not_protected(repo, branch, "branch")
             state = self._repo_state(repo)
             self._require_branch_prep_state(state)
 
@@ -260,6 +261,121 @@ class CodexSafeGit:
             )
             raise
 
+    def create_commit_branch(self, repo_path: str, branch_name: str) -> dict[str, Any]:
+        branch = ""
+        try:
+            repo = self._resolve_allowed_repo(repo_path)
+            branch = self._normalise_branch_name(branch_name)
+            self._require_git_repo(repo)
+            self._require_no_execution_config(repo)
+            self._require_branch_not_protected(repo, branch, "branch")
+            state = self._repo_state(repo)
+            self._require_branch_creation_state(state)
+
+            head_commit = self._current_head(repo)
+            current_branch = state["branch"]
+            if current_branch == branch:
+                action = "already_on_branch"
+            else:
+                existing_head = self._local_branch_head(repo, branch)
+                if existing_head is None:
+                    self._git(repo, ["switch", "-c", branch])
+                    action = "created"
+                elif existing_head == head_commit:
+                    self._git(repo, ["switch", branch])
+                    action = "switched"
+                else:
+                    raise CodexSafeGitRefusal("requested branch already exists at a different commit")
+
+            result = {
+                "result": "ok",
+                "repo": str(repo),
+                "branch": branch,
+                "action": action,
+                "head_commit": head_commit,
+            }
+            self._audit(
+                "create_commit_branch",
+                action,
+                repo=repo,
+                branch=branch,
+                commit_hash=head_commit,
+            )
+            return result
+        except CodexSafeGitRefusal as exc:
+            self._audit(
+                "create_commit_branch",
+                "refused",
+                repo_text=repo_path,
+                branch=branch or branch_name if isinstance(branch_name, str) else None,
+                reason=str(exc),
+            )
+            raise
+
+    def merge_branch(
+        self,
+        repo_path: str,
+        source_branch: str,
+        target_branch: str | None = None,
+    ) -> dict[str, Any]:
+        source = ""
+        target = ""
+        try:
+            repo = self._resolve_allowed_repo(repo_path)
+            source = self._normalise_branch_name(source_branch)
+            target = self._normalise_branch_name(target_branch) if target_branch is not None else ""
+            self._require_git_repo(repo)
+            self._require_no_execution_config(repo)
+            state = self._require_clean_worktree_state(repo)
+
+            current_branch = state["branch"]
+            if current_branch is None:
+                raise CodexSafeGitRefusal("repository is detached; prepare a branch before merging")
+            if target:
+                if current_branch != target:
+                    raise CodexSafeGitRefusal("target_branch must match the current branch")
+            else:
+                target = current_branch
+            if source == target:
+                raise CodexSafeGitRefusal("source_branch and target_branch must differ")
+            self._require_branch_not_protected(repo, target, "target branch")
+            source_head = self._require_local_branch(repo, source, "source_branch")
+            target_head = self._require_local_branch(repo, target, "target_branch")
+
+            self._git(repo, ["merge", "--ff-only", source])
+            merged_head = self._current_head(repo)
+            action = "already_up_to_date" if merged_head == target_head else "fast_forwarded"
+            result = {
+                "result": "ok",
+                "repo": str(repo),
+                "source_branch": source,
+                "target_branch": target,
+                "action": action,
+                "source_head": source_head,
+                "target_head_before": target_head,
+                "target_head_after": merged_head,
+            }
+            self._audit(
+                "merge_branch",
+                action,
+                repo=repo,
+                branch=target,
+                source_branch=source,
+                target_branch=target,
+                commit_hash=merged_head,
+            )
+            return result
+        except CodexSafeGitRefusal as exc:
+            self._audit(
+                "merge_branch",
+                "refused",
+                repo_text=repo_path,
+                source_branch=source or source_branch if isinstance(source_branch, str) else None,
+                target_branch=target or target_branch if isinstance(target_branch, str) else None,
+                reason=str(exc),
+            )
+            raise
+
     def commit_files(
         self,
         repo_path: str,
@@ -276,7 +392,7 @@ class CodexSafeGit:
             self._require_git_repo(repo)
             self._require_no_execution_config(repo)
             state = self._require_clear_commit_state(repo)
-            self._require_commit_branch_allowed(state)
+            self._require_commit_branch_allowed(repo, state)
             self._reject_likely_secret_material(repo, requested)
 
             self._git(repo, ["add", "--", *requested])
@@ -345,6 +461,13 @@ class CodexSafeGit:
             raise CodexSafeGitRefusal("repository already has staged changes")
         return state
 
+    def _require_clean_worktree_state(self, repo: Path) -> dict[str, Any]:
+        state = self._require_clear_commit_state(repo)
+        entries = self._porcelain_entries(repo)
+        if entries:
+            raise CodexSafeGitRefusal("repository must be clean before merging")
+        return state
+
     def _require_branch_prep_state(self, state: dict[str, Any]) -> None:
         blocking = [reason for reason in state["ambiguous_reasons"] if reason != "detached HEAD"]
         if blocking:
@@ -352,10 +475,33 @@ class CodexSafeGit:
         if state["has_staged_changes"]:
             raise CodexSafeGitRefusal("repository already has staged changes")
 
-    def _require_commit_branch_allowed(self, state: dict[str, Any]) -> None:
+    def _require_branch_creation_state(self, state: dict[str, Any]) -> None:
+        blocking = [reason for reason in state["ambiguous_reasons"] if reason != "detached HEAD"]
+        if blocking:
+            raise CodexSafeGitRefusal("repository has ambiguous state: " + ", ".join(blocking))
+        if state["has_staged_changes"]:
+            raise CodexSafeGitRefusal("repository already has staged changes")
+
+    def _require_commit_branch_allowed(self, repo: Path, state: dict[str, Any]) -> None:
         branch = state["branch"]
-        if branch in PROTECTED_BRANCHES:
+        if branch in self._protected_branches(repo):
             raise CodexSafeGitRefusal(f"refusing commit on protected branch: {branch}")
+
+    def _require_branch_not_protected(self, repo: Path, branch: str, label: str) -> None:
+        if branch in self._protected_branches(repo):
+            raise CodexSafeGitRefusal(f"refusing protected {label}: {branch}")
+
+    def _protected_branches(self, repo: Path) -> set[str]:
+        protected = set(PROTECTED_BRANCHES)
+        configured = self._git(repo, ["config", "--get", "init.defaultBranch"], check=False)
+        if configured.returncode == 0:
+            branch = configured.stdout.strip()
+            if branch:
+                protected.add(branch)
+        elif configured.returncode != 1:
+            detail = (configured.stderr or configured.stdout).strip()
+            raise CodexSafeGitRefusal(f"default branch inspection failed: {detail}")
+        return protected
 
     def _require_no_execution_config(self, repo: Path) -> None:
         result = self._git(repo, ["config", "--get-regexp", EXECUTION_CONFIG_PATTERN], check=False)
@@ -496,12 +642,12 @@ class CodexSafeGit:
         branch = branch_name.strip()
         if branch != branch_name or "\x00" in branch:
             raise CodexSafeGitRefusal("branch_name contains invalid characters")
-        if branch in PROTECTED_BRANCHES:
-            raise CodexSafeGitRefusal(f"refusing protected branch: {branch}")
         if branch.startswith("-") or branch.startswith("/") or branch.endswith("/"):
             raise CodexSafeGitRefusal("branch_name has unsafe syntax")
         if branch.startswith("refs/") or branch.split("/", 1)[0] in REMOTE_LIKE_BRANCH_PREFIXES:
             raise CodexSafeGitRefusal("branch_name must be a local branch, not a remote/ref path")
+        if re.fullmatch(r"[0-9a-fA-F]{7,40}", branch):
+            raise CodexSafeGitRefusal("branch_name must be a local branch, not a commit hash")
         unsafe_tokens = ("..", "//", "@{", "\\", ":", "?", "[", "*", "~", "^", " ")
         if any(token in branch for token in unsafe_tokens):
             raise CodexSafeGitRefusal("branch_name has unsafe syntax")
@@ -596,6 +742,12 @@ class CodexSafeGit:
         detail = (result.stderr or result.stdout).strip()
         raise CodexSafeGitRefusal(f"git branch inspection failed: {detail}")
 
+    def _require_local_branch(self, repo: Path, branch: str, label: str) -> str:
+        head = self._local_branch_head(repo, branch)
+        if head is None:
+            raise CodexSafeGitRefusal(f"{label} does not exist as a local branch: {branch}")
+        return head
+
     def _git_dir(self, repo: Path) -> Path:
         raw = self._git(repo, ["rev-parse", "--git-dir"]).stdout.strip()
         git_dir = Path(raw)
@@ -670,6 +822,8 @@ class CodexSafeGit:
         reason: str | None = None,
         file_count: int | None = None,
         redacted_secret_path_count: int | None = None,
+        source_branch: str | None = None,
+        target_branch: str | None = None,
     ) -> None:
         payload: dict[str, Any] = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -686,6 +840,10 @@ class CodexSafeGit:
             payload["commit_hash"] = commit_hash
         if branch is not None:
             payload["branch"] = branch
+        if source_branch is not None:
+            payload["source_branch"] = source_branch
+        if target_branch is not None:
+            payload["target_branch"] = target_branch
         if reason is not None:
             payload["reason"] = reason
         if file_count is not None:

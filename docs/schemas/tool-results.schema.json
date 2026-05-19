@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/codex-safe-git/tool-results.schema.json",
+  "title": "Codex Safe Git MCP Tool Results",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["result", "repo", "branch", "is_detached", "ambiguous_reasons", "has_staged_changes", "clean", "entries", "redacted_secret_path_count"],
+      "properties": {
+        "result": { "const": "ok" },
+        "repo": { "type": "string" },
+        "branch": { "type": ["string", "null"] },
+        "is_detached": { "type": "boolean" },
+        "ambiguous_reasons": { "type": "array", "items": { "type": "string" } },
+        "has_staged_changes": { "type": "boolean" },
+        "clean": { "type": "boolean" },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code", "path"],
+            "properties": {
+              "code": { "type": "string" },
+              "path": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "redacted_secret_path_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["result", "repo", "unstaged", "staged", "untracked"],
+      "properties": {
+        "result": { "const": "ok" },
+        "repo": { "type": "string" },
+        "unstaged": { "$ref": "#/$defs/file_summary" },
+        "staged": { "$ref": "#/$defs/file_summary" },
+        "untracked": { "$ref": "#/$defs/untracked_summary" }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["result", "repo", "commit_hash", "files", "audit_summary"],
+      "properties": {
+        "result": { "const": "committed" },
+        "repo": { "type": "string" },
+        "commit_hash": { "type": "string" },
+        "files": { "type": "array", "items": { "type": "string" } },
+        "audit_summary": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["result", "repo", "branch", "action", "head_commit"],
+      "properties": {
+        "result": { "const": "ok" },
+        "repo": { "type": "string" },
+        "branch": { "type": "string" },
+        "action": { "type": "string" },
+        "head_commit": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["result", "repo", "source_branch", "target_branch", "action", "source_head", "target_head_before", "target_head_after"],
+      "properties": {
+        "result": { "const": "ok" },
+        "repo": { "type": "string" },
+        "source_branch": { "type": "string" },
+        "target_branch": { "type": "string" },
+        "action": { "type": "string" },
+        "source_head": { "type": "string" },
+        "target_head_before": { "type": "string" },
+        "target_head_after": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["result", "reason"],
+      "properties": {
+        "result": { "const": "refused" },
+        "reason": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  ],
+  "$defs": {
+    "file_summary": {
+      "type": "object",
+      "required": ["files", "redacted_secret_path_count"],
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "additions", "deletions"],
+            "properties": {
+              "path": { "type": "string" },
+              "additions": { "type": ["integer", "null"] },
+              "deletions": { "type": ["integer", "null"] }
+            },
+            "additionalProperties": false
+          }
+        },
+        "redacted_secret_path_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "untracked_summary": {
+      "type": "object",
+      "required": ["files", "redacted_secret_path_count"],
+      "properties": {
+        "files": { "type": "array", "items": { "type": "string" } },
+        "redacted_secret_path_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

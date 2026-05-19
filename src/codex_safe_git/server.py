@@ -11,7 +11,7 @@ PROTOCOL_VERSION = "2025-11-25"
 SERVER_INFO = {
     "name": "codex-safe-git-commit",
     "title": "Codex Safe Git Commit",
-    "version": "0.1.0",
+    "version": "0.2.0",
 }
 
 
@@ -72,6 +72,35 @@ TOOLS: list[dict[str, Any]] = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "create_commit_branch",
+        "title": "Create Commit Branch",
+        "description": "Create or switch to a safe local non-default branch at current HEAD.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {"type": "string"},
+                "branch_name": {"type": "string"},
+            },
+            "required": ["repo_path", "branch_name"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "merge_branch",
+        "title": "Merge Branch",
+        "description": "Fast-forward a clean non-default local target branch from another local branch.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {"type": "string"},
+                "source_branch": {"type": "string"},
+                "target_branch": {"type": "string"},
+            },
+            "required": ["repo_path", "source_branch"],
+            "additionalProperties": False,
+        },
+    },
 ]
 
 
@@ -89,9 +118,10 @@ def handle_request(message: dict[str, Any], codex_safe_git: CodexSafeGit | None 
                 "capabilities": {"tools": {"listChanged": False}},
                 "serverInfo": SERVER_INFO,
                 "instructions": (
-                    "Use only git_status, git_diff_summary, ensure_commit_branch, and commit_files. "
-                    "Repos must be explicitly allowlisted by environment or be exact Git worktree "
-                    "roots under an explicit allowed repo root."
+                    "Use only git_status, git_diff_summary, ensure_commit_branch, "
+                    "create_commit_branch, commit_files, and merge_branch. Repos must be "
+                    "explicitly allowlisted by environment or be exact Git worktree roots under "
+                    "an explicit allowed repo root."
                 ),
             },
         )
@@ -131,6 +161,19 @@ def call_tool(params: dict[str, Any], codex_safe_git: CodexSafeGit | None = None
             payload = client.ensure_commit_branch(
                 _string_arg(arguments, "repo_path"),
                 _string_arg(arguments, "branch_name"),
+            )
+        elif name == "create_commit_branch":
+            _reject_unexpected_args(arguments, {"repo_path", "branch_name"})
+            payload = client.create_commit_branch(
+                _string_arg(arguments, "repo_path"),
+                _string_arg(arguments, "branch_name"),
+            )
+        elif name == "merge_branch":
+            _reject_unexpected_args(arguments, {"repo_path", "source_branch", "target_branch"})
+            payload = client.merge_branch(
+                _string_arg(arguments, "repo_path"),
+                _string_arg(arguments, "source_branch"),
+                _optional_string_arg(arguments, "target_branch"),
             )
         else:
             raise CodexSafeGitRefusal(f"unsupported tool: {name}")

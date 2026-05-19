@@ -14,7 +14,9 @@ sandboxed Codex app shell that cannot read `~/.codex`.
   - `git_status`
   - `git_diff_summary`
   - `ensure_commit_branch`
+  - `create_commit_branch`
   - `commit_files`
+  - `merge_branch`
 - Set `mcp_servers.codex_safe_git.default_tools_approval_mode = "approve"` for this server only. This
   does not change the global approval policy or sandbox mode; it lets non-interactive `codex exec`
   use the deliberately narrow codex-safe-git surface.
@@ -55,8 +57,9 @@ Expected evidence:
 - `codex_safe_git` uses the stable local wrapper, for example
   `~/.codex/tools/codex-safe-git/bin/codex-safe-git-mcp`.
 - The MCP entry does not depend on a repo-local `cwd` or `PYTHONPATH`.
-- `enabled_tools` is exactly `["git_status", "git_diff_summary", "commit_files", "ensure_commit_branch"]`.
-- `default_tools_approval_mode` is `approve`, or each of the four enabled tools has
+- `enabled_tools` is exactly `["git_status", "git_diff_summary", "commit_files",
+  "ensure_commit_branch", "create_commit_branch", "merge_branch"]`.
+- `default_tools_approval_mode` is `approve`, or each of the six enabled tools has
   `approval_mode = "approve"`.
 - The exact repo allowlist and/or allowed repo roots are explicit, and the audit log path is explicit.
 - No broader Git, shell, network, push, pull, reset, merge, rebase, remote, deploy, PR, or publish
@@ -68,7 +71,7 @@ Run this from a normal terminal with Codex CLI auth available:
 
 ```sh
 codex exec --json --ephemeral --skip-git-repo-check --sandbox workspace-write \
-  'Use only the codex_safe_git MCP tools. For /absolute/path/to/allowlisted/repo, call git_status, then git_diff_summary. If the repo is detached, call ensure_commit_branch with branch_name "codex/codex-safe-git-cli-validation". If there is one intentional file change, commit only that exact file with commit_files. Report the MCP tool names used, final branch, clean status, commit hash if any, and committed file list.'
+  'Use only the codex_safe_git MCP tools. For /absolute/path/to/allowlisted/repo, call git_status, then git_diff_summary. If the repo is detached, call ensure_commit_branch with branch_name "codex/codex-safe-git-cli-validation". If branch creation is needed, call create_commit_branch with a safe codex/* branch. If there is one intentional file change, commit only that exact file with commit_files. Report the MCP tool names used, final branch, clean status, commit hash if any, and committed file list.'
 ```
 
 Expected evidence:
@@ -79,6 +82,8 @@ Expected evidence:
 - Detached worktrees are prepared with `ensure_commit_branch`.
 - Commits occur only on a non-`main`/non-`master` branch.
 - `commit_files` receives exact file paths, not directories or globs.
+- `create_commit_branch` creates or switches only to a non-default local branch at current `HEAD`.
+- `merge_branch` performs only clean fast-forward local merges into non-default target branches.
 - Audit log contains metadata only: action, result, repo, branch, filenames, and commit hash.
 
 ## Refusal Checks
@@ -87,7 +92,11 @@ Use disposable repos or clean states for refusal checks:
 
 - `ensure_commit_branch(..., "main")` is refused.
 - `ensure_commit_branch(..., "master")` is refused.
+- `create_commit_branch(..., "main")` is refused.
 - `ensure_commit_branch(..., "origin/unsafe")` is refused.
+- `merge_branch` into `main`, `master`, or the configured default branch is refused.
+- Dirty worktrees are refused before merge.
+- Non-fast-forward local merges are refused without mutating the worktree.
 - Unallowlisted repo paths are refused.
 - Paths under allowed repo roots that are not exact Git worktree roots are refused.
 - Detached `commit_files` without branch preparation is refused.

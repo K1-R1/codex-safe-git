@@ -37,5 +37,12 @@ class CodexSafeGitConfigAndSurfaceTests(GitRepoTestCase):
         names = [tool["name"] for tool in listed["result"]["tools"]]
         self.assertEqual(
             names,
-            ["git_status", "git_diff_summary", "commit_files", "ensure_commit_branch"],
+            [
+                "git_status",
+                "git_diff_summary",
+                "commit_files",
+                "ensure_commit_branch",
+                "create_commit_branch",
+                "merge_branch",
+            ],
         )
