@@ -15,6 +15,8 @@ Proven behaviours:
 - Codex CLI can call `git_status` and `git_diff_summary` through `codex_safe_git` with
   `--sandbox workspace-write`.
 - Codex CLI can commit an exact file through `codex_safe_git` with `--sandbox workspace-write`.
+- The active local MCP config uses explicit allowed repo roots for Codex worktrees and local project
+  containers, not one-off per-worktree allowlists.
 - Audit logs contain metadata only: action, result, repo, branch, filenames, counts, refusal
   reasons, and commit hashes where applicable.
 - The server supports explicit allowed repo roots, so one MCP registration can cover Codex worktrees
@@ -28,6 +30,7 @@ Validation commits:
   - `c1564c7cb3b17466ce1c55d1bb8f751868afa833`
   - `d4c3672033f48b171b85de744c9715fe6cf230ee`
 - CLI commit proof: `8a59c45059f75f1db06a274902ca8cc3c38548d6`
+- Root allowlist CLI commit proof: `045df3c3cc8058bc883d7e7d9aa4de9b2abb9be5`
 
 ## Remaining Work
 
