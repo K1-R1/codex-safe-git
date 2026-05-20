@@ -1,0 +1,284 @@
+package mcp
+
+import (
+	"bufio"
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+
+	"local/codex-safe-git/internal/config"
+	"local/codex-safe-git/internal/gitpolicy"
+)
+
+const ProtocolVersion = "2025-11-25"
+const ServerVersion = "0.1.0"
+
+type Server struct {
+	Policy *gitpolicy.Policy
+}
+
+type request struct {
+	JSONRPC string          `json:"jsonrpc"`
+	ID      any             `json:"id,omitempty"`
+	Method  string          `json:"method"`
+	Params  json.RawMessage `json:"params,omitempty"`
+}
+
+type response struct {
+	JSONRPC string       `json:"jsonrpc"`
+	ID      any          `json:"id"`
+	Result  any          `json:"result,omitempty"`
+	Error   *errorObject `json:"error,omitempty"`
+}
+
+type errorObject struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+type toolPayload struct {
+	Content           []contentBlock `json:"content"`
+	StructuredContent any            `json:"structuredContent"`
+	IsError           bool           `json:"isError,omitempty"`
+}
+
+type contentBlock struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
+
+type toolCallParams struct {
+	Name      string          `json:"name"`
+	Arguments json.RawMessage `json:"arguments"`
+}
+
+type repoPathArgs struct {
+	RepoPath string `json:"repo_path"`
+}
+
+type commitFilesArgs struct {
+	RepoPath string   `json:"repo_path"`
+	Files    []string `json:"files"`
+	Message  string   `json:"message"`
+	Body     *string  `json:"body,omitempty"`
+}
+
+type branchArgs struct {
+	RepoPath   string `json:"repo_path"`
+	BranchName string `json:"branch_name"`
+}
+
+type mergeArgs struct {
+	RepoPath     string  `json:"repo_path"`
+	SourceBranch string  `json:"source_branch"`
+	TargetBranch *string `json:"target_branch,omitempty"`
+}
+
+func Main(stdin io.Reader, stdout io.Writer) int {
+	server := Server{}
+	scanner := bufio.NewScanner(stdin)
+	writer := bufio.NewWriter(stdout)
+	defer writer.Flush()
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		reply := server.Handle(line)
+		if reply == nil {
+			continue
+		}
+		encoded, err := json.Marshal(reply)
+		if err != nil {
+			continue
+		}
+		_, _ = writer.Write(append(encoded, '\n'))
+		_ = writer.Flush()
+	}
+	if scanner.Err() != nil {
+		return 1
+	}
+	return 0
+}
+
+func (s Server) Handle(raw []byte) *response {
+	var req request
+	if err := json.Unmarshal(raw, &req); err != nil {
+		return &response{JSONRPC: "2.0", ID: nil, Error: &errorObject{Code: -32700, Message: "Parse error"}}
+	}
+	if req.Method == "notifications/initialized" {
+		return nil
+	}
+	switch req.Method {
+	case "initialize":
+		return result(req.ID, map[string]any{
+			"protocolVersion": ProtocolVersion,
+			"capabilities": map[string]any{
+				"tools": map[string]any{"listChanged": false},
+			},
+			"serverInfo": map[string]any{
+				"name":    "codex-safe-git",
+				"title":   "Codex Safe Git",
+				"version": ServerVersion,
+			},
+			"instructions": "Use only git_status, git_diff_summary, ensure_commit_branch, create_commit_branch, commit_files, and merge_branch. Repos must be explicitly allowlisted by environment or be exact Git worktree roots under an explicit allowed repo root.",
+		})
+	case "tools/list":
+		return result(req.ID, map[string]any{"tools": tools()})
+	case "tools/call":
+		payload := s.callTool(req.Params)
+		return result(req.ID, payload)
+	default:
+		return &response{JSONRPC: "2.0", ID: req.ID, Error: &errorObject{Code: -32601, Message: "Unsupported method: " + req.Method}}
+	}
+}
+
+func (s Server) callTool(raw json.RawMessage) toolPayload {
+	var params toolCallParams
+	if err := json.Unmarshal(raw, &params); err != nil {
+		return refusalPayload("tool params must be an object")
+	}
+	if len(params.Arguments) == 0 {
+		params.Arguments = []byte(`{}`)
+	}
+	policy, err := s.policy()
+	if err != nil {
+		return refusalPayload(err.Error())
+	}
+	var payload any
+	switch params.Name {
+	case "git_status":
+		var args repoPathArgs
+		if err := decodeExact(params.Arguments, &args); err != nil {
+			return refusalPayload(err.Error())
+		}
+		payload, err = policy.GitStatus(args.RepoPath)
+	case "git_diff_summary":
+		var args repoPathArgs
+		if err := decodeExact(params.Arguments, &args); err != nil {
+			return refusalPayload(err.Error())
+		}
+		payload, err = policy.GitDiffSummary(args.RepoPath)
+	case "commit_files":
+		var args commitFilesArgs
+		if err := decodeExact(params.Arguments, &args); err != nil {
+			return refusalPayload(err.Error())
+		}
+		payload, err = policy.CommitFiles(args.RepoPath, args.Files, args.Message, args.Body)
+	case "ensure_commit_branch":
+		var args branchArgs
+		if err := decodeExact(params.Arguments, &args); err != nil {
+			return refusalPayload(err.Error())
+		}
+		payload, err = policy.EnsureCommitBranch(args.RepoPath, args.BranchName)
+	case "create_commit_branch":
+		var args branchArgs
+		if err := decodeExact(params.Arguments, &args); err != nil {
+			return refusalPayload(err.Error())
+		}
+		payload, err = policy.CreateCommitBranch(args.RepoPath, args.BranchName)
+	case "merge_branch":
+		var args mergeArgs
+		if err := decodeExact(params.Arguments, &args); err != nil {
+			return refusalPayload(err.Error())
+		}
+		payload, err = policy.MergeBranch(args.RepoPath, args.SourceBranch, args.TargetBranch)
+	default:
+		return refusalPayload("unsupported tool: " + params.Name)
+	}
+	if err != nil {
+		return refusalPayload(err.Error())
+	}
+	return successPayload(payload)
+}
+
+func (s Server) policy() (gitpolicy.Policy, error) {
+	if s.Policy != nil {
+		return *s.Policy, nil
+	}
+	cfg, err := config.FromEnv(nil)
+	if err != nil {
+		return gitpolicy.Policy{}, err
+	}
+	return gitpolicy.New(cfg)
+}
+
+func decodeExact(raw json.RawMessage, target any) error {
+	var generic map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &generic); err != nil {
+		return errors.New("tool arguments must be an object")
+	}
+	decoder := json.NewDecoder(bytesReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(target); err != nil {
+		return fmt.Errorf("unexpected tool arguments or invalid argument type: %w", err)
+	}
+	return nil
+}
+
+func bytesReader(raw []byte) io.Reader {
+	return bytes.NewReader(raw)
+}
+
+func successPayload(payload any) toolPayload {
+	return toolPayload{Content: []contentBlock{{Type: "text", Text: marshalText(payload)}}, StructuredContent: payload}
+}
+
+func refusalPayload(reason string) toolPayload {
+	payload := gitpolicy.RefusalResult{Result: "refused", Reason: reason}
+	return toolPayload{Content: []contentBlock{{Type: "text", Text: marshalText(payload)}}, StructuredContent: payload, IsError: true}
+}
+
+func marshalText(value any) string {
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return `{"reason":"json marshal failed","result":"refused"}`
+	}
+	return string(encoded)
+}
+
+func result(id any, payload any) *response {
+	return &response{JSONRPC: "2.0", ID: id, Result: payload}
+}
+
+func tools() []map[string]any {
+	return []map[string]any{
+		tool("git_status", "Git Status", "Return a redacted, read-only status summary for an explicitly allowed local Git repo.", []string{"repo_path"}, map[string]any{"repo_path": map[string]any{"type": "string"}}),
+		tool("git_diff_summary", "Git Diff Summary", "Return redacted file-level diff counts for an explicitly allowed local Git repo.", []string{"repo_path"}, map[string]any{"repo_path": map[string]any{"type": "string"}}),
+		tool("commit_files", "Commit Files", "Create a local commit from exactly listed files after deterministic safety checks.", []string{"repo_path", "files", "message"}, map[string]any{
+			"repo_path": map[string]any{"type": "string"},
+			"files":     map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "minItems": 1},
+			"message":   map[string]any{"type": "string"},
+			"body":      map[string]any{"type": "string"},
+		}),
+		tool("ensure_commit_branch", "Ensure Commit Branch", "Attach a detached worktree to a safe local non-default branch at current HEAD.", []string{"repo_path", "branch_name"}, map[string]any{
+			"repo_path":   map[string]any{"type": "string"},
+			"branch_name": map[string]any{"type": "string"},
+		}),
+		tool("create_commit_branch", "Create Commit Branch", "Create or switch to a safe local non-default branch at current HEAD.", []string{"repo_path", "branch_name"}, map[string]any{
+			"repo_path":   map[string]any{"type": "string"},
+			"branch_name": map[string]any{"type": "string"},
+		}),
+		tool("merge_branch", "Merge Branch", "Fast-forward a clean non-default local target branch from another local branch.", []string{"repo_path", "source_branch"}, map[string]any{
+			"repo_path":     map[string]any{"type": "string"},
+			"source_branch": map[string]any{"type": "string"},
+			"target_branch": map[string]any{"type": "string"},
+		}),
+	}
+}
+
+func tool(name, title, description string, required []string, properties map[string]any) map[string]any {
+	return map[string]any{
+		"name":        name,
+		"title":       title,
+		"description": description,
+		"inputSchema": map[string]any{
+			"type":                 "object",
+			"properties":           properties,
+			"required":             required,
+			"additionalProperties": false,
+		},
+	}
+}

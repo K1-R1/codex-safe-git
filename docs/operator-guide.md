@@ -1,6 +1,7 @@
 # Operator Guide
 
-This guide is for private or team-local use of `codex-safe-git` with Codex App and Codex CLI.
+This guide is for private or team-local use of the Go `codex-safe-git` MCP server with Codex App and
+Codex CLI.
 
 ## Install Or Update
 
@@ -13,8 +14,8 @@ scripts/install-local.sh
 
 Defaults:
 
-- install path: `~/.codex/tools/codex-safe-git`
-- wrapper: `~/.codex/tools/codex-safe-git/bin/codex-safe-git-mcp`
+- install path: `~/.codex/tools/codex-safe-git-go`
+- binary: `~/.codex/tools/codex-safe-git-go/bin/codex-safe-git-mcp`
 - allowed roots: `~/.codex/worktrees:$HOME/personal/projects`
 - audit log: `~/.codex/log/codex-safe-git-audit.jsonl`
 
@@ -22,71 +23,82 @@ Supported overrides:
 
 ```sh
 CODEX_HOME="$HOME/.codex" \
+CODEX_SAFE_GIT_INSTALL_DIR="$HOME/.codex/tools/codex-safe-git-go" \
 CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS="$HOME/.codex/worktrees:$HOME/personal/projects" \
 CODEX_SAFE_GIT_AUDIT_LOG="$HOME/.codex/log/codex-safe-git-audit.jsonl" \
 scripts/install-local.sh
 ```
 
+Set `GO=/absolute/path/to/go` if Go is not on `PATH`. After install, normal Codex use does not need
+the Go source tree or a Go toolchain.
+
 Use `scripts/install-local.sh --print-config` to print only the MCP config block.
 
 ## MCP Config
 
-Use the config printed by the installer. The active server should use the stable wrapper and should
-not depend on a repo-local `cwd` or `PYTHONPATH`.
+Use the config printed by the installer. The active production server keeps the id
+`codex_safe_git`, and its command points at the stable Go binary:
 
-`default_tools_approval_mode = "approve"` is recommended for this MCP server only, because the
-surface is narrow and deterministic. It does not change the global approval policy, Codex sandbox
-mode, or any app-wide permissions.
+```toml
+[mcp_servers.codex_safe_git]
+command = "/Users/you/.codex/tools/codex-safe-git-go/bin/codex-safe-git-mcp"
+enabled_tools = ["git_status", "git_diff_summary", "commit_files", "ensure_commit_branch", "create_commit_branch", "merge_branch"]
+default_tools_approval_mode = "approve"
+enabled = true
+
+[mcp_servers.codex_safe_git.env]
+CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS = "/Users/you/.codex/worktrees:/Users/you/projects"
+CODEX_SAFE_GIT_AUDIT_LOG = "/Users/you/.codex/log/codex-safe-git-audit.jsonl"
+```
+
+`default_tools_approval_mode = "approve"` applies only to this narrow MCP server. It does not change
+Codex sandbox mode, Full Access, global approval policy, app-wide settings, or the permissions of
+any other tool.
 
 ## Allowed Roots
 
-Set `CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS` to explicit local containers for repos Codex may work in.
-Do not use `/`, `$HOME`, system directories, cloud-sync roots, or credential directories.
+Set `CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS` to explicit local containers for repositories Codex may work
+in. Each requested `repo_path` must still be an exact Git worktree root.
 
-To add a new project area, append it to the path-separated root list and reload Codex App or restart
-the Codex CLI session.
+Good examples:
+
+- `~/.codex/worktrees`
+- `~/personal/projects`
+- a team-local projects directory
+
+Avoid:
+
+- `/`
+- `$HOME`
+- system directories
+- cloud-sync roots with unrelated material
+- credential, wallet, keychain, shell-profile, or secrets directories
+
+For highly sensitive work, use `CODEX_SAFE_GIT_ALLOWED_REPOS` with exact repo paths instead of broad
+roots.
 
 ## Audit Log
 
 Audit records are JSON Lines. They contain metadata only: action, result, repo path, branch names,
 file names, counts, refusal reasons, and commit hashes. They must not contain file contents, full
-diffs, secrets, credentials, keychain material, or environment dumps.
+diffs, secrets, credentials, keychain material, shell profiles, or environment dumps.
 
 Keep the audit log under a user-owned path such as `~/.codex/log/codex-safe-git-audit.jsonl`.
 
-## Refusal Examples
+## Troubleshooting
 
-Expected refusals include:
-
-- repo path outside configured roots
-- repo path that is not the exact Git worktree root
-- `main`, `master`, or configured default branch as a commit, branch-creation, or merge target
-- remote-like branch names such as `origin/feature`
-- dirty worktree before merge
-- detached commit without branch preparation
-- ambiguous Git states such as merge, rebase, cherry-pick, revert, bisect, or conflicts
-- likely secret paths or likely secret material in requested commit diffs
-
-## Verification Checklist
-
-```sh
-codex mcp get codex_safe_git
-codex mcp list
-```
-
-Expected:
-
-- command is the stable wrapper under `~/.codex/tools/codex-safe-git/bin`
-- no `cwd`
-- no `PYTHONPATH`
-- enabled tools are exactly the documented `codex-safe-git` tools
-- env contains explicit allowed roots and an explicit audit log path
-
-Then run a Codex CLI smoke test under `--sandbox workspace-write` and confirm the agent uses only
-`codex_safe_git` MCP tools for Git state and commit work.
+- `repo_path is not explicitly allowlisted`: add the exact repo or a narrow parent root, then reload
+  the Codex session.
+- `repo_path must be the Git worktree root`: call the tool with the repository root, not a
+  subdirectory.
+- `repository already has staged changes`: unstage manually or start from a clean index.
+- `repository has ambiguous state`: finish or abort the merge, rebase, cherry-pick, revert, bisect,
+  or conflict manually.
+- `refusing commit on protected branch`: create or switch to a safe non-default branch.
+- `merge is not fast-forward`: merge manually or create a branch shape that can fast-forward.
 
 ## Removal
 
-To remove the local install, first remove or disable the `codex_safe_git` MCP entry from Codex
-configuration, then delete `~/.codex/tools/codex-safe-git`. Keep or archive the audit log according
-to your local retention needs.
+To remove the local Go install, first remove or disable the `codex_safe_git` MCP entry from Codex
+configuration, then delete `~/.codex/tools/codex-safe-git-go`. Keep or archive the audit log
+according to your local retention needs.

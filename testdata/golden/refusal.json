@@ -1,0 +1,5 @@
+{
+  "result": "refused",
+  "reason": "repo_path is not explicitly allowlisted or under an allowed repo root"
+}
+

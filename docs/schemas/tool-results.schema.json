@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://local.invalid/codex-safe-git/tool-results.schema.json",
-  "title": "Codex Safe Git MCP Tool Results",
+  "title": "Codex Safe Git Go MCP Tool Results",
   "oneOf": [
     {
       "type": "object",

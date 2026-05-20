@@ -1,17 +1,9 @@
-# Example only. Do not paste blindly; set paths for your local machine.
-
 [mcp_servers.codex_safe_git]
-command = "/Users/you/.codex/tools/codex-safe-git/bin/codex-safe-git-mcp"
+command = "/Users/you/.codex/tools/codex-safe-git-go/bin/codex-safe-git-mcp"
 enabled_tools = ["git_status", "git_diff_summary", "commit_files", "ensure_commit_branch", "create_commit_branch", "merge_branch"]
-# Codex Safe Git exposes only deterministic, allowlisted local operations; approving this server's
-# narrow tool surface lets non-interactive `codex exec` use it without changing the global approval
-# policy or Codex sandbox mode.
 default_tools_approval_mode = "approve"
+enabled = true
 
 [mcp_servers.codex_safe_git.env]
-# Exact repo allowlist remains supported for especially sensitive or one-off repos.
-CODEX_SAFE_GIT_ALLOWED_REPOS = "/absolute/path/to/allowed/repo"
-# Allowed repo roots make the server usable across Codex worktrees and local project folders without
-# exposing arbitrary filesystem access. Each requested repo_path must still be an exact Git worktree root.
-CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS = "/absolute/path/to/.codex/worktrees:/absolute/path/to/projects"
-CODEX_SAFE_GIT_AUDIT_LOG = "/absolute/path/to/audit/codex-safe-git.jsonl"
+CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS = "/Users/you/.codex/worktrees:/Users/you/projects"
+CODEX_SAFE_GIT_AUDIT_LOG = "/Users/you/.codex/log/codex-safe-git-audit.jsonl"

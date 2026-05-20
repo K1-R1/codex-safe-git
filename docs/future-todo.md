@@ -1,88 +1,45 @@
 # Future TODO
 
-## Completed Validation
+## Current State
 
-The codex-safe-git MCP has been validated in both Codex app and normal Codex CLI flows while preserving
-the `workspace-write` sandbox and the narrow MCP surface.
+Codex Safe Git is now the canonical Go implementation. The earlier Python prototype has been
+removed after local, direct stdio, Codex App, and Codex CLI validation.
 
-Proven behaviours:
+The active local MCP config should point to:
 
-- The local verification suite passes: compile checks plus 43 unit, integration, MCP, contract,
-  and installer tests.
-- Codex app can call the live `codex_safe_git` MCP tools against linked worktrees and disposable
-  validation repos.
-- A detached linked worktree can be attached to a non-default branch with `ensure_commit_branch`.
-- A clean worktree can create or switch to a safe non-default local branch at current `HEAD` with
-  `create_commit_branch`.
-- `commit_files` can commit exact listed files on a non-default Codex worktree branch.
-- `merge_branch` can fast-forward a clean non-default local target branch from another local branch,
-  including linked worktrees.
-- Commits on protected `main` and remote-like branch names are refused.
-- Codex CLI can call `git_status`, `git_diff_summary`, `create_commit_branch`, `merge_branch`,
-  `commit_files`, and `ensure_commit_branch` through `codex_safe_git` with
-  `--sandbox workspace-write`.
-- Codex CLI can refuse protected-branch merges, fast-forward non-default local branches, and commit
-  exact files through `codex_safe_git`.
-- The active local MCP config uses explicit allowed repo roots for Codex worktrees and local project
-  containers, not one-off per-worktree allowlists.
-- The active local MCP config points at a stable wrapper under `~/.codex/tools/codex-safe-git`
-  instead of a disposable Codex worktree checkout.
-- Audit logs contain metadata only: action, result, repo, branch, filenames, counts, refusal
-  reasons, and commit hashes where applicable.
-- The server supports explicit allowed repo roots, so one MCP registration can cover Codex worktrees
-  and local project containers without allowing arbitrary Git or shell.
-- The stable installer supports dry-run, config-only output, version reporting, explicit overrides,
-  and idempotent update behaviour for first-time private/team setup.
-- The private/team operator guide, validation runbook, MCP contract notes, and schema snapshot are
-  present.
+```text
+~/.codex/tools/codex-safe-git-go/bin/codex-safe-git-mcp
+```
 
-Validation commits:
+The MCP surface remains exactly:
 
-- App/worktree commit: `611dc518bb61e8b2a9cfdbaf6b5368a7994f2f04`
-- App follow-up docs commits:
-  - `2961674af74ac21b9f035c6464f5d3acabaa8ec5`
-  - `c1564c7cb3b17466ce1c55d1bb8f751868afa833`
-  - `d4c3672033f48b171b85de744c9715fe6cf230ee`
-- CLI commit proof: `8a59c45059f75f1db06a274902ca8cc3c38548d6`
-- Root allowlist CLI commit proof: `045df3c3cc8058bc883d7e7d9aa4de9b2abb9be5`
+- `git_status`
+- `git_diff_summary`
+- `commit_files`
+- `ensure_commit_branch`
+- `create_commit_branch`
+- `merge_branch`
 
-## Remaining Work
+## Remaining Private/Team Work
 
-These are intentionally deferred beyond the private/team local production hardening gate.
+- Decide audit log retention, review, and rotation policy for team machines.
+- Add CI coverage for Go formatting, vet, tests, race tests, installer dry-run, and direct stdio MCP
+  smoke tests.
+- Add a private team onboarding guide for installing, updating, and configuring allowed repo roots.
+- Add checksum/signing strategy for private binary distribution before broader team rollout.
+- Keep open-source readiness deferred until explicitly approved.
 
-### Product Direction
+## Possible Narrow Local Tools
 
-Codex Safe Git should become the standard local safe-Git path for Codex app and Codex CLI across
-Codex projects. It should stay local-only, deterministic, allowlisted, audited, and compatible with
-the normal `workspace-write` sandbox and current permission model.
-
-Future work should optimise for:
-
-- clear per-machine allowed-root and audit-log configuration
-- team-member installation and update workflows
-- hardening suitable for eventual open-source release
-- safe, best-practice local Git hygiene for Codex during long-running implementation work
-
-### Next Engineering Work
-
-- Add packaging/release polish for reuse outside this workspace.
-- Add CI coverage in an environment with Git and Python available.
-- Add a team onboarding guide and update policy around the stable local installer.
-- Decide retention, rotation, and review policy for `~/.codex/log/codex-safe-git-audit.jsonl`.
-- Prepare open-source readiness only after hardening: licence, security policy, contribution guide,
-  threat model, reproducible tests, and clear non-goals.
-
-### Possible Narrow Local Tools
-
-Only local, deterministic, safety-reviewed tools should be considered. Candidate tools from the
-original brief remain deferred:
+Only local, deterministic, safety-reviewed tools should be considered. Candidate tools remain
+deferred:
 
 - `create_worktree`
 - `list_worktrees`
 - a stricter `safe_checkout`
 
-Any new tool must preserve exact allowlists, refuse ambiguous states, avoid remotes, and never become
-an arbitrary Git command runner.
+Any new tool must preserve exact allowlists, refuse ambiguous states, avoid remotes, and never
+become an arbitrary Git command runner.
 
 ## Permanent Non-Goals
 
@@ -90,6 +47,6 @@ These are not future features:
 
 - arbitrary Git commands
 - arbitrary shell
-- push, pull, fetch, reset, clean, merge, rebase, tag, force-push, branch deletion, remote mutation,
+- push, pull, fetch, reset, clean, rebase, tag, force-push, branch deletion, remote mutation,
   deploys, package publishing, or PR creation
 - secret, credential, token, wallet, keychain, or shell-profile access

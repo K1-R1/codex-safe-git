@@ -1,109 +1,108 @@
-# Codex Safe Git Validation Runbook
+# Validation Runbook
 
-This runbook records the proof needed before calling the Codex Safe Git MCP complete for both Codex app
-and Codex CLI safe setups. Run these commands from a normal interactive terminal, not from a
-sandboxed Codex app shell that cannot read `~/.codex`.
+This runbook records the proof expected for the canonical Go implementation in Codex App and Codex
+CLI.
 
 ## Preconditions
 
-- Do not enable Full Access or `--dangerously-bypass-approvals-and-sandbox`.
-- Keep the Codex sandbox at `workspace-write`.
-- Install the server to a stable local tool path with `scripts/install-local.sh`; do not point the
-  active MCP config at a disposable Codex worktree.
-- Keep the `codex_safe_git` MCP entry limited to:
+- Do not enable Full Access or bypass the sandbox.
+- Keep Codex at `workspace-write`.
+- Keep `enabled_tools` to exactly:
   - `git_status`
   - `git_diff_summary`
+  - `commit_files`
   - `ensure_commit_branch`
   - `create_commit_branch`
-  - `commit_files`
   - `merge_branch`
-- Set `mcp_servers.codex_safe_git.default_tools_approval_mode = "approve"` for this server only. This
-  does not change the global approval policy or sandbox mode; it lets non-interactive `codex exec`
-  use the deliberately narrow codex-safe-git surface.
-- Allowlist exact repos for narrow tests, or explicit repo roots such as the Codex worktree root and
-  local projects root for default day-to-day use. Do not use `/` or broad system directories.
-- Use an explicit audit log path and remove temporary audit logs after review.
+- Use explicit allowed repos or allowed repo roots.
+- Use an explicit audit log path.
+- Do not point active MCP config at a disposable worktree path.
 
-## Local Codex Safe Git Tests
+## Local Go Verification
 
 From `codex-safe-git/`:
 
 ```sh
-PYTHONPYCACHEPREFIX=/private/tmp/codex-safe-git-pycache \
-python3 -m compileall -q src tests
+go fmt ./...
+go vet ./...
+go test ./...
+go test -race ./...
+```
 
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src \
-python3 -m unittest discover -s tests -v
+If Go is not installed globally, set `GO=/absolute/path/to/go` for installer scripts and call the Go
+binary directly for local checks.
+
+Expected evidence:
+
+- Formatting exits cleanly.
+- Vet exits cleanly.
+- Unit, integration-style policy, and MCP tests pass.
+- Race tests pass where practical.
+- Temporary repos and audit logs are cleaned.
+
+## Direct Stdio Validation
+
+Build a disposable binary and run `initialize`, `tools/list`, and at least one `tools/call` request
+over stdin/stdout before changing Codex config.
+
+Expected evidence:
+
+- `serverInfo.name` is `codex-safe-git`.
+- `tools/list` exposes only the six intended tools.
+- `git_status` or `git_diff_summary` works for an allowed repo root.
+- An outside-root call returns `{ "result": "refused", "reason": "..." }`.
+
+## Installer Verification
+
+```sh
+scripts/install-local.sh --dry-run
+scripts/install-local.sh --print-config
+scripts/install-local.sh
 ```
 
 Expected evidence:
 
-- Compile command exits 0.
-- Unit/integration/MCP test suite exits 0.
-- Worktree tests cover ordinary repos, linked worktrees, detached branch preparation, protected
-  branch refusal, exact file staging, audit metadata, and MCP tool surface.
+- The install path is stable, user-owned, and not a source worktree dependency.
+- The printed config uses the Go binary.
+- The config has explicit allowed roots and audit log path.
+- The installed binary runs without a source worktree dependency.
 
-## Codex CLI MCP Registration
+## App Validation
 
-From any repo:
+Reload Codex App as needed after installer or config changes.
+
+Through the App MCP tools, prove:
+
+- status/diff for a normal project repo under an allowed root
+- status/diff for a Codex worktree under an allowed root
+- outside-root refusal
+- protected `main`/`master`/default branch refusal
+- safe branch creation or preparation
+- fast-forward merge into a non-default local target
+- exact-file commit
+- metadata-only audit logging
+
+Use disposable local repos for branch, merge, and commit validation, then clean them up.
+
+## CLI Validation
+
+From a normal terminal with Codex CLI auth available:
 
 ```sh
 codex mcp get codex_safe_git
 codex mcp list
+codex exec --json --ephemeral --skip-git-repo-check --sandbox workspace-write 'Use only the codex_safe_git MCP tools...'
 ```
 
 Expected evidence:
 
-- `codex_safe_git` uses the stable local wrapper, for example
-  `~/.codex/tools/codex-safe-git/bin/codex-safe-git-mcp`.
-- The MCP entry does not depend on a repo-local `cwd` or `PYTHONPATH`.
-- `enabled_tools` is exactly `["git_status", "git_diff_summary", "commit_files",
-  "ensure_commit_branch", "create_commit_branch", "merge_branch"]`.
-- `default_tools_approval_mode` is `approve`, or each of the six enabled tools has
-  `approval_mode = "approve"`.
-- The exact repo allowlist and/or allowed repo roots are explicit, and the audit log path is explicit.
-- No broader Git, shell, network, push, pull, reset, merge, rebase, remote, deploy, PR, or publish
-  tools are exposed.
+- `codex mcp get codex_safe_git` points to the Go binary.
+- `codex mcp list` shows exactly the intended enabled tool surface.
+- The CLI agent uses MCP tools for Git state, branch, merge, and commit work.
+- No shell Git is used inside `codex exec`.
+- Protected/default targets refuse.
+- Non-default fast-forward merge succeeds.
+- Exact-file commit succeeds.
 
-## Codex CLI Live Test
-
-Run this from a normal terminal with Codex CLI auth available:
-
-```sh
-codex exec --json --ephemeral --skip-git-repo-check --sandbox workspace-write \
-  'Use only the codex_safe_git MCP tools. For /absolute/path/to/allowlisted/repo, call git_status, then git_diff_summary. If the repo is detached, call ensure_commit_branch with branch_name "codex/codex-safe-git-cli-validation". If branch creation is needed, call create_commit_branch with a safe codex/* branch. If there is one intentional file change, commit only that exact file with commit_files. Report the MCP tool names used, final branch, clean status, commit hash if any, and committed file list.'
-```
-
-Expected evidence:
-
-- The CLI agent calls only `codex_safe_git` MCP tools for Git state and commit work.
-- MCP calls complete successfully. `user cancelled MCP tool call` means the approval mode or prompt
-  handling is not yet configured for non-interactive validation.
-- Detached worktrees are prepared with `ensure_commit_branch`.
-- Commits occur only on a non-`main`/non-`master` branch.
-- `commit_files` receives exact file paths, not directories or globs.
-- `create_commit_branch` creates or switches only to a non-default local branch at current `HEAD`.
-- `merge_branch` performs only clean fast-forward local merges into non-default target branches.
-- Audit log contains metadata only: action, result, repo, branch, filenames, and commit hash.
-
-## Refusal Checks
-
-Use disposable repos or clean states for refusal checks:
-
-- `ensure_commit_branch(..., "main")` is refused.
-- `ensure_commit_branch(..., "master")` is refused.
-- `create_commit_branch(..., "main")` is refused.
-- `ensure_commit_branch(..., "origin/unsafe")` is refused.
-- `merge_branch` into `main`, `master`, or the configured default branch is refused.
-- Dirty worktrees are refused before merge.
-- Non-fast-forward local merges are refused without mutating the worktree.
-- Unallowlisted repo paths are refused.
-- Paths under allowed repo roots that are not exact Git worktree roots are refused.
-- Detached `commit_files` without branch preparation is refused.
-
-## Cleanup
-
-- Remove temporary repos.
-- Remove temporary audit logs after reviewing metadata.
-- Remove generated pycache or test scratch directories.
-- Confirm the repo has only intentional commits and no staged changes.
+If CLI auth/keychain requires a normal terminal, ask the operator to run the exact command and paste
+the output. Do not weaken Codex App permissions to compensate.
