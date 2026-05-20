@@ -27,6 +27,10 @@ The MCP surface remains exactly:
   tests, and the safety regression cases in the local suite.
 - Add a private team onboarding guide for installing, updating, and configuring allowed repo roots.
 - Add checksum/signing strategy for private binary distribution before broader team rollout.
+- Decide the team's preferred protected-branch landing path. `codex-safe-git` should continue to
+  refuse direct merges into `main`, `master`, defaults, and configured production branches; final
+  protected-branch integration belongs in a human-reviewed PR, Codex review/merge control, or manual
+  operator merge.
 - Keep open-source readiness deferred until explicitly approved.
 
 ## Possible Narrow Local Tools

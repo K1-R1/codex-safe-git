@@ -91,6 +91,22 @@ team-specific production branch names with `CODEX_SAFE_GIT_PROTECTED_BRANCHES`, 
 list such as `trunk,develop,release/stable`. Protected branches cannot be commit targets, branch
 creation targets, or merge targets.
 
+## Landing Protected Branches
+
+`codex-safe-git` is not the tool that lands work onto `main`, `master`, or another protected branch.
+That final integration step should remain a human-reviewed repository workflow, such as a pull
+request, Codex's normal review/merge controls, or a manual terminal merge performed by the operator.
+
+Before landing a Codex branch:
+
+- run the project tests and any repository-specific validation
+- use `git_status` and `git_diff_summary` to confirm the Codex branch is clean and scoped
+- review the branch diff through the normal repository review path
+- merge into the protected branch outside `codex-safe-git`
+
+This boundary is intentional: Codex may prepare, commit, branch, and fast-forward between safe
+non-default local branches, but it cannot directly mutate production/default branch targets.
+
 ## Audit Log
 
 Audit records are JSON Lines. They contain metadata only: action, result, repo path, branch names,
