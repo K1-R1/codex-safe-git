@@ -13,7 +13,7 @@ import (
 )
 
 const ProtocolVersion = "2025-11-25"
-const ServerVersion = "0.2.0"
+const ServerVersion = "0.3.0"
 
 type Server struct {
 	Policy *gitpolicy.Policy
