@@ -21,8 +21,11 @@
 - Malicious Git configuration attempting to execute filters, diff drivers, hooks, pagers, prompts, or
   credential helpers.
 - PATH hijack of the `git` binary.
+- Git pathspec magic or filesystem symlinks expanding a requested file list beyond the user's exact
+  intent.
 - Local races where files change between safety checks and commit.
 - Accidental secret commit through path or content scanner gaps.
+- Audit log path misconfiguration causing mutations to happen without durable local metadata.
 - Audit metadata revealing sensitive project structure.
 - MCP config tampering that points Codex to a broader tool or looser environment.
 
@@ -35,12 +38,13 @@
 - Disable hooks, signing, pager, editor, prompts, and credential helpers for Git subprocesses.
 - Validate the resolved `git` executable before use.
 - Stage exact requested files and verify the staged set.
+- Force literal Git pathspec handling and reject symlinked requested paths.
 - Refuse likely secret paths and likely secret material.
 - Write metadata-only audit entries.
+- Check audit writability before mutating Git state.
 
 ## Accepted Residual Risk
 
 - A local attacker with the same user account can race filesystem changes or tamper with MCP config.
 - Secret detection is heuristic and not a complete DLP system.
 - A bad but policy-compliant commit can still be created on a non-default local branch.
-

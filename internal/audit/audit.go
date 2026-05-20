@@ -2,6 +2,7 @@ package audit
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"time"
@@ -27,23 +28,34 @@ type Logger struct {
 }
 
 func (l Logger) Write(entry Entry) {
+	_ = l.WriteChecked(entry)
+}
+
+func (l Logger) WriteChecked(entry Entry) error {
 	if l.Path == "" {
-		return
+		return errors.New("audit log path is required")
 	}
 	entry.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
 	if err := os.MkdirAll(filepath.Dir(l.Path), 0o700); err != nil {
-		return
+		return err
 	}
 	file, err := os.OpenFile(l.Path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
-		return
+		return err
 	}
 	defer file.Close()
 	encoded, err := json.Marshal(entry)
 	if err != nil {
-		return
+		return err
 	}
-	_, _ = file.Write(append(encoded, '\n'))
+	if _, err := file.Write(append(encoded, '\n')); err != nil {
+		return err
+	}
+	return file.Sync()
+}
+
+func (l Logger) EnsureWritable() error {
+	return l.WriteChecked(Entry{Action: "audit_check", Result: "ok"})
 }
 
 func IntPtr(value int) *int {

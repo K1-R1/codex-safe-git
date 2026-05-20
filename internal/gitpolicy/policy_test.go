@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -49,6 +50,13 @@ func TestCommitFilesRefusesProtectedDefaultBranches(t *testing.T) {
 	if _, err := repo.Policy.CommitFiles(repo.Path, []string{"trunk.txt"}, "Try trunk commit", nil); !hasReason(err, "protected branch: trunk") {
 		t.Fatalf("expected trunk refusal, got %v", err)
 	}
+
+	repo.Run("switch", "-c", "develop")
+	repo.Policy.Config.ProtectedBranches = map[string]struct{}{"develop": {}}
+	repo.Write("develop.txt", "develop\n")
+	if _, err := repo.Policy.CommitFiles(repo.Path, []string{"develop.txt"}, "Try develop commit", nil); !hasReason(err, "protected branch: develop") {
+		t.Fatalf("expected configured protected branch refusal, got %v", err)
+	}
 }
 
 func TestCommitFilesSupportsTrackedDeletionsAndRenamePairs(t *testing.T) {
@@ -71,6 +79,44 @@ func TestCommitFilesSupportsTrackedDeletionsAndRenamePairs(t *testing.T) {
 	}
 	if status := repo.Run("status", "--short"); status != "" {
 		t.Fatalf("expected clean repo, got %q", status)
+	}
+}
+
+func TestCommitFilesRefusesSymlinkWithoutCommittingTarget(t *testing.T) {
+	repo := testrepo.New(t)
+	repo.Write("target.txt", "target\n")
+	if err := os.Symlink("target.txt", repo.Abs("link.txt")); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := repo.Policy.CommitFiles(repo.Path, []string{"link.txt"}, "Add link", nil); !hasReason(err, "must not be a symlink") {
+		t.Fatalf("expected symlink refusal, got %v", err)
+	}
+	status := repo.Run("status", "--short")
+	if !strings.Contains(status, "?? link.txt") || !strings.Contains(status, "?? target.txt") {
+		t.Fatalf("unexpected status after symlink refusal:\n%s", status)
+	}
+}
+
+func TestCommitFilesTreatsPathspecMagicAsLiteral(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test filename uses POSIX pathspec characters")
+	}
+	repo := testrepo.New(t)
+	magicName := ":(glob)*.txt"
+	repo.Write(magicName, "literal\n")
+	repo.Write("other.txt", "other\n")
+
+	result, err := repo.Policy.CommitFiles(repo.Path, []string{magicName}, "Add literal pathspec file", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(result.Files, ",") != magicName {
+		t.Fatalf("unexpected committed files: %#v", result.Files)
+	}
+	show := repo.Run("show", "--name-only", "--format=%s", "HEAD")
+	if !strings.Contains(show, magicName) || strings.Contains(show, "other.txt") {
+		t.Fatalf("pathspec magic was not treated literally:\n%s", show)
 	}
 }
 
@@ -119,6 +165,33 @@ func TestSecretPathAndMaterialRefusals(t *testing.T) {
 	repo.Write("scanner.py", "LIKELY_SECRET = re.compile('placeholder')\n")
 	if _, err := repo.Policy.CommitFiles(repo.Path, []string{"scanner.py"}, "Add scanner source", nil); err != nil {
 		t.Fatalf("identifier-contained keyword should be allowed: %v", err)
+	}
+}
+
+func TestStatusAndDiffRedactRenameSecretSides(t *testing.T) {
+	repo := testrepo.New(t)
+	repo.Write("normal/public.txt", "public\n")
+	if _, err := repo.Policy.CommitFiles(repo.Path, []string{"normal/public.txt"}, "Add public file", nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(repo.Abs(".ssh"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	repo.Run("mv", "normal/public.txt", ".ssh/public.txt")
+
+	status, err := repo.Policy.GitStatus(repo.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.RedactedSecretPathCount != 1 || len(status.Entries) != 0 {
+		t.Fatalf("expected secret rename redaction, got %#v", status)
+	}
+	diff, err := repo.Policy.GitDiffSummary(repo.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diff.Staged.RedactedSecretPathCount != 1 || len(diff.Staged.Files) != 0 {
+		t.Fatalf("expected staged secret rename redaction, got %#v", diff.Staged)
 	}
 }
 
@@ -296,6 +369,24 @@ func TestAuditMetadataOnly(t *testing.T) {
 		if _, ok := entry[forbidden]; ok {
 			t.Fatalf("audit entry contains forbidden key %q: %#v", forbidden, entry)
 		}
+	}
+}
+
+func TestCommitFilesFailsClosedWhenAuditLogUnavailable(t *testing.T) {
+	repo := testrepo.New(t)
+	repo.Policy.Audit.Path = repo.Root
+	before := strings.TrimSpace(repo.Run("rev-parse", "HEAD"))
+	repo.Write("blocked.txt", "blocked\n")
+
+	if _, err := repo.Policy.CommitFiles(repo.Path, []string{"blocked.txt"}, "Try blocked audit", nil); !hasReason(err, "audit log is not writable") {
+		t.Fatalf("expected audit refusal, got %v", err)
+	}
+	after := strings.TrimSpace(repo.Run("rev-parse", "HEAD"))
+	if before != after {
+		t.Fatalf("commit happened despite audit failure: before %s after %s", before, after)
+	}
+	if status := repo.Run("status", "--short"); !strings.Contains(status, "?? blocked.txt") {
+		t.Fatalf("file should remain uncommitted after audit failure, got %q", status)
 	}
 }
 

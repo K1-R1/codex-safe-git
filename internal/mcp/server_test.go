@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -118,6 +119,26 @@ func TestStdioServerRoundTrip(t *testing.T) {
 	}
 	if got := status.Result.StructuredContent["result"]; got != "ok" {
 		t.Fatalf("unexpected status response: %#v", status.Result.StructuredContent)
+	}
+}
+
+func TestInstallerRefusesCanonicalParentInstallPath(t *testing.T) {
+	codexHome := filepath.Join(t.TempDir(), ".codex")
+	if err := os.MkdirAll(filepath.Join(codexHome, "tools"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	script := filepath.Join("..", "..", "scripts", "install-local.sh")
+	cmd := exec.Command("bash", script, "--dry-run")
+	cmd.Env = append(os.Environ(),
+		"CODEX_HOME="+codexHome,
+		"CODEX_SAFE_GIT_INSTALL_DIR="+filepath.Join(codexHome, "tools", ".."),
+	)
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected installer refusal, got success:\n%s", output)
+	}
+	if !strings.Contains(string(output), "Refusing unsafe install directory") {
+		t.Fatalf("unexpected installer output:\n%s", output)
 	}
 }
 

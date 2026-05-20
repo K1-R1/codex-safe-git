@@ -7,3 +7,5 @@ enabled = true
 [mcp_servers.codex_safe_git.env]
 CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS = "/Users/you/.codex/worktrees:/Users/you/projects"
 CODEX_SAFE_GIT_AUDIT_LOG = "/Users/you/.codex/log/codex-safe-git-audit.jsonl"
+# Optional extra local protected branches beyond built-in main/master and repo init.defaultBranch.
+CODEX_SAFE_GIT_PROTECTED_BRANCHES = "trunk,develop"

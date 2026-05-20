@@ -16,6 +16,10 @@ The Go server must expose exactly:
 
 No tool accepts arbitrary Git arguments or shell commands.
 
+Safety-critical guarantees include literal exact-file staging, symlink refusal for requested files,
+fail-closed audit checks for mutations, metadata-only audit records, and protected branch refusal for
+`main`, `master`, repository defaults, and operator-configured production branch names.
+
 ## Local Verification
 
 Use the local Go toolchain:

@@ -123,6 +123,7 @@ func gitEnv() []string {
 		"GIT_ASKPASS="+falsePath,
 		"GIT_CONFIG_NOSYSTEM=1",
 		"GIT_EDITOR=:",
+		"GIT_LITERAL_PATHSPECS=1",
 		"GIT_TERMINAL_PROMPT=0",
 		"SSH_ASKPASS="+falsePath,
 	)

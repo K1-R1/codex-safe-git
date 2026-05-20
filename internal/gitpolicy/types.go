@@ -9,8 +9,9 @@ func (r Refusal) Error() string {
 }
 
 type StatusEntry struct {
-	Code string `json:"code"`
-	Path string `json:"path"`
+	Code         string `json:"code"`
+	Path         string `json:"path"`
+	OriginalPath string `json:"-"`
 }
 
 type StatusResult struct {

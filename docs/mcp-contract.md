@@ -49,4 +49,6 @@ Refusals also set `isError: true`.
 - Response objects use deterministic JSON field names.
 - Audit records are metadata-only and never include file contents, full diffs, secrets, credentials,
   keychain material, shell profiles, or environment dumps.
+- Mutating operations require a writable audit log before Git state is changed.
+- Requested commit file paths are literal and must not resolve through symlinks.
 - New tools require an explicit product decision. The default stance is to keep the surface closed.

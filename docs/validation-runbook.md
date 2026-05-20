@@ -16,6 +16,8 @@ CLI.
   - `merge_branch`
 - Use explicit allowed repos or allowed repo roots.
 - Use an explicit audit log path.
+- Configure extra production branch names with `CODEX_SAFE_GIT_PROTECTED_BRANCHES` when a team uses
+  names such as `trunk`, `develop`, or `release/stable`.
 - Do not point active MCP config at a disposable worktree path.
 
 ## Local Go Verification
@@ -65,6 +67,7 @@ Expected evidence:
 - The install path is stable, user-owned, and not a source worktree dependency.
 - The printed config uses the Go binary.
 - The config has explicit allowed roots and audit log path.
+- The installer refuses canonical unsafe install paths such as `$CODEX_HOME/..`.
 - The installed binary runs without a source worktree dependency.
 
 ## App Validation
@@ -77,6 +80,8 @@ Through the App MCP tools, prove:
 - status/diff for a Codex worktree under an allowed root
 - outside-root refusal
 - protected `main`/`master`/default branch refusal
+- configured protected branch refusal when applicable
+- symlink and literal-pathspec exact-file safeguards
 - safe branch creation or preparation
 - fast-forward merge into a non-default local target
 - exact-file commit

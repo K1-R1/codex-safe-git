@@ -53,7 +53,9 @@ func (p Policy) GitStatus(repoPath string) (StatusResult, error) {
 		p.auditRefusal("git_status", repoPath, err)
 		return StatusResult{}, err
 	}
-	p.Audit.Write(audit.Entry{Action: "git_status", Result: "ok", Repo: repo, FileCount: audit.IntPtr(len(result.Entries))})
+	if err := p.auditSuccess(audit.Entry{Action: "git_status", Result: "ok", Repo: repo, FileCount: audit.IntPtr(len(result.Entries))}); err != nil {
+		return StatusResult{}, err
+	}
 	return result, nil
 }
 
@@ -98,13 +100,15 @@ func (p Policy) GitDiffSummary(repoPath string) (DiffSummaryResult, error) {
 	}
 	total := len(unstaged.Files) + len(staged.Files) + len(untracked.Files)
 	redacted := unstaged.RedactedSecretPathCount + staged.RedactedSecretPathCount + untracked.RedactedSecretPathCount
-	p.Audit.Write(audit.Entry{
+	if err := p.auditSuccess(audit.Entry{
 		Action:                  "git_diff_summary",
 		Result:                  "ok",
 		Repo:                    repo,
 		FileCount:               audit.IntPtr(total),
 		RedactedSecretPathCount: audit.IntPtr(redacted),
-	})
+	}); err != nil {
+		return DiffSummaryResult{}, err
+	}
 	return DiffSummaryResult{Result: "ok", Repo: repo, Unstaged: unstaged, Staged: staged, Untracked: untracked}, nil
 }
 
@@ -148,6 +152,9 @@ func (p Policy) prepareBranch(actionName, repoPath, branchName string, allowName
 		p.Audit.Write(audit.Entry{Action: actionName, Result: "refused", Repo: repoPath, Branch: branch, Reason: err.Error()})
 		return BranchResult{}, err
 	}
+	if err := p.requireAuditWritable(); err != nil {
+		return BranchResult{}, err
+	}
 	var mutation string
 	if state.Branch != nil && *state.Branch == branch {
 		mutation = "already_on_branch"
@@ -174,7 +181,9 @@ func (p Policy) prepareBranch(actionName, repoPath, branchName string, allowName
 		p.Audit.Write(audit.Entry{Action: actionName, Result: "refused", Repo: repoPath, Branch: branch, Reason: err.Error()})
 		return BranchResult{}, err
 	}
-	p.Audit.Write(audit.Entry{Action: actionName, Result: mutation, Repo: repo, Branch: branch, CommitHash: head})
+	if err := p.auditSuccess(audit.Entry{Action: actionName, Result: mutation, Repo: repo, Branch: branch, CommitHash: head}); err != nil {
+		return BranchResult{}, err
+	}
 	return BranchResult{Result: "ok", Repo: repo, Branch: branch, Action: mutation, HeadCommit: head}, nil
 }
 
@@ -224,6 +233,9 @@ func (p Policy) MergeBranch(repoPath, sourceBranch string, targetBranch *string)
 	if err == nil {
 		targetHead, err = p.requireLocalBranch(repo, target, "target_branch")
 	}
+	if err == nil {
+		err = p.requireAuditWritable()
+	}
 	if err != nil {
 		p.Audit.Write(audit.Entry{Action: "merge_branch", Result: "refused", Repo: repoPath, SourceBranch: branchOrInput(source, sourceBranch), TargetBranch: branchOrInput(target, optionalBranch(targetBranch)), Reason: err.Error()})
 		return MergeResult{}, err
@@ -242,7 +254,9 @@ func (p Policy) MergeBranch(repoPath, sourceBranch string, targetBranch *string)
 	if mergedHead == targetHead {
 		action = "already_up_to_date"
 	}
-	p.Audit.Write(audit.Entry{Action: "merge_branch", Result: action, Repo: repo, Branch: target, SourceBranch: source, TargetBranch: target, CommitHash: mergedHead})
+	if err := p.auditSuccess(audit.Entry{Action: "merge_branch", Result: action, Repo: repo, Branch: target, SourceBranch: source, TargetBranch: target, CommitHash: mergedHead}); err != nil {
+		return MergeResult{}, err
+	}
 	return MergeResult{
 		Result:           "ok",
 		Repo:             repo,
@@ -282,6 +296,9 @@ func (p Policy) CommitFiles(repoPath string, files []string, message string, bod
 	}
 	if err == nil {
 		err = p.rejectLikelySecretMaterial(repo, fileList)
+	}
+	if err == nil {
+		err = p.requireAuditWritable()
 	}
 	if err != nil {
 		p.Audit.Write(audit.Entry{Action: "commit_files", Result: "refused", Repo: repoPath, Files: fileList, Reason: err.Error()})
@@ -324,7 +341,9 @@ func (p Policy) CommitFiles(repoPath string, files []string, message string, bod
 		return CommitResult{}, err
 	}
 	sort.Strings(fileList)
-	p.Audit.Write(audit.Entry{Action: "commit_files", Result: "committed", Repo: repo, Files: fileList, CommitHash: head})
+	if err := p.auditSuccess(audit.Entry{Action: "commit_files", Result: "committed", Repo: repo, Files: fileList, CommitHash: head}); err != nil {
+		return CommitResult{}, err
+	}
 	return CommitResult{
 		Result:       "committed",
 		Repo:         repo,

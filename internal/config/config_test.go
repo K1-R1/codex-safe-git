@@ -34,6 +34,23 @@ func TestFromEnvSupportsAllowedRepoRoots(t *testing.T) {
 	}
 }
 
+func TestFromEnvSupportsConfiguredProtectedBranches(t *testing.T) {
+	root := t.TempDir()
+	cfg, err := config.FromEnv(map[string]string{
+		"CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS": root,
+		"CODEX_SAFE_GIT_AUDIT_LOG":          filepath.Join(root, "audit.jsonl"),
+		"CODEX_SAFE_GIT_PROTECTED_BRANCHES": "trunk, develop , release/stable",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, branch := range []string{"trunk", "develop", "release/stable"} {
+		if _, ok := cfg.ProtectedBranches[branch]; !ok {
+			t.Fatalf("expected protected branch %q in %#v", branch, cfg.ProtectedBranches)
+		}
+	}
+}
+
 func TestFromEnvRejectsFilesystemRoot(t *testing.T) {
 	_, err := config.FromEnv(map[string]string{
 		"CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS": string(os.PathSeparator),

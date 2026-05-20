@@ -8,9 +8,10 @@ import (
 )
 
 type Config struct {
-	AllowedRepos     map[string]struct{}
-	AllowedRepoRoots map[string]struct{}
-	AuditLog         string
+	AllowedRepos      map[string]struct{}
+	AllowedRepoRoots  map[string]struct{}
+	ProtectedBranches map[string]struct{}
+	AuditLog          string
 }
 
 func FromEnv(env map[string]string) (Config, error) {
@@ -19,6 +20,7 @@ func FromEnv(env map[string]string) (Config, error) {
 	}
 	allowedReposRaw := strings.TrimSpace(env["CODEX_SAFE_GIT_ALLOWED_REPOS"])
 	allowedRootsRaw := strings.TrimSpace(env["CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS"])
+	protectedRaw := strings.TrimSpace(env["CODEX_SAFE_GIT_PROTECTED_BRANCHES"])
 	auditRaw := strings.TrimSpace(env["CODEX_SAFE_GIT_AUDIT_LOG"])
 	if allowedReposRaw == "" && allowedRootsRaw == "" {
 		return Config{}, errors.New("CODEX_SAFE_GIT_ALLOWED_REPOS or CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS is required")
@@ -43,9 +45,10 @@ func FromEnv(env map[string]string) (Config, error) {
 		return Config{}, err
 	}
 	return Config{
-		AllowedRepos:     allowedRepos,
-		AllowedRepoRoots: allowedRoots,
-		AuditLog:         auditLog,
+		AllowedRepos:      allowedRepos,
+		AllowedRepoRoots:  allowedRoots,
+		ProtectedBranches: branchSetFromEnv(protectedRaw),
+		AuditLog:          auditLog,
 	}, nil
 }
 
@@ -83,6 +86,17 @@ func pathSetFromEnv(raw string, requireDirRoot bool) (map[string]struct{}, error
 		result[path] = struct{}{}
 	}
 	return result, nil
+}
+
+func branchSetFromEnv(raw string) map[string]struct{} {
+	result := make(map[string]struct{})
+	for _, item := range strings.Split(raw, ",") {
+		branch := strings.TrimSpace(item)
+		if branch != "" {
+			result[branch] = struct{}{}
+		}
+	}
+	return result
 }
 
 func normalisePath(raw string) (string, error) {

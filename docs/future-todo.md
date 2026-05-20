@@ -23,8 +23,8 @@ The MCP surface remains exactly:
 ## Remaining Private/Team Work
 
 - Decide audit log retention, review, and rotation policy for team machines.
-- Add CI coverage for Go formatting, vet, tests, race tests, installer dry-run, and direct stdio MCP
-  smoke tests.
+- Add CI coverage for Go formatting, vet, tests, race tests, installer dry-run, direct stdio MCP smoke
+  tests, and the safety regression cases in the local suite.
 - Add a private team onboarding guide for installing, updating, and configuring allowed repo roots.
 - Add checksum/signing strategy for private binary distribution before broader team rollout.
 - Keep open-source readiness deferred until explicitly approved.

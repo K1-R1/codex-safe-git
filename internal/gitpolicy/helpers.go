@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"local/codex-safe-git/internal/audit"
 	"local/codex-safe-git/internal/secretcheck"
 )
 
@@ -25,6 +26,20 @@ func refuse(reason string) Refusal {
 
 func (p Policy) auditRefusal(action, repo string, err error) {
 	p.Audit.WriteAuditCompat(action, repo, err)
+}
+
+func (p Policy) requireAuditWritable() error {
+	if err := p.Audit.EnsureWritable(); err != nil {
+		return refuse("audit log is not writable: " + err.Error())
+	}
+	return nil
+}
+
+func (p Policy) auditSuccess(entry audit.Entry) error {
+	if err := p.Audit.WriteChecked(entry); err != nil {
+		return refuse("audit log is not writable: " + err.Error())
+	}
+	return nil
 }
 
 func (p Policy) resolveAllowedRepo(repoPath string) (string, error) {
@@ -177,7 +192,7 @@ func (p Policy) status(repo string) (StatusResult, error) {
 	visible := make([]StatusEntry, 0, len(entries))
 	redacted := 0
 	for _, entry := range entries {
-		if secretcheck.IsSecretPath(entry.Path) {
+		if entryHasSecretPath(entry) {
 			redacted++
 			continue
 		}
@@ -271,6 +286,9 @@ func (p Policy) protectedBranches(repo string) (map[string]struct{}, error) {
 	for branch := range protectedBranches {
 		result[branch] = struct{}{}
 	}
+	for branch := range p.Config.ProtectedBranches {
+		result[branch] = struct{}{}
+	}
 	configured, err := p.Git.RunAllowFailure(repo, "config", "--get", "init.defaultBranch")
 	if err != nil {
 		return nil, err
@@ -290,6 +308,7 @@ func (p Policy) normaliseFiles(repo string, files []string) ([]string, error) {
 	if len(files) == 0 {
 		return nil, refuse("at least one file must be listed")
 	}
+	repo = filepath.Clean(repo)
 	seen := map[string]struct{}{}
 	result := make([]string, 0, len(files))
 	for _, item := range files {
@@ -304,12 +323,8 @@ func (p Policy) normaliseFiles(repo string, files []string) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		if _, err := os.Lstat(abs); err == nil {
-			if resolved, err := filepath.EvalSymlinks(abs); err == nil {
-				abs = resolved
-			}
-		}
-		rel, err := filepath.Rel(repo, filepath.Clean(abs))
+		filePath := filepath.Clean(abs)
+		rel, err := filepath.Rel(repo, filePath)
 		if err != nil || rel == "." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." {
 			return nil, refuse("requested file is outside repo: " + item)
 		}
@@ -321,11 +336,20 @@ func (p Policy) normaliseFiles(repo string, files []string) ([]string, error) {
 		if secretcheck.IsSecretPath(rel) {
 			return nil, refuse("refusing secret-bearing path: " + rel)
 		}
-		filePath := filepath.Join(repo, filepath.FromSlash(rel))
 		info, lstatErr := os.Lstat(filePath)
 		if lstatErr == nil {
-			if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+			if info.Mode()&os.ModeSymlink != 0 {
+				return nil, refuse("requested path must not be a symlink: " + rel)
+			}
+			if !info.Mode().IsRegular() {
 				return nil, refuse("requested path must be a regular file: " + rel)
+			}
+			hasSymlink, err := pathContainsSymlink(repo, rel)
+			if err != nil {
+				return nil, err
+			}
+			if hasSymlink {
+				return nil, refuse("requested path must not contain symlink components: " + rel)
 			}
 		} else if errors.Is(lstatErr, os.ErrNotExist) {
 			tracked, err := p.tracked(repo, rel)
@@ -415,7 +439,7 @@ func (p Policy) safeUntracked(repo string) (UntrackedSummary, error) {
 		if entry.Code != "??" {
 			continue
 		}
-		if secretcheck.IsSecretPath(entry.Path) {
+		if entryHasSecretPath(entry) {
 			redacted++
 		} else {
 			files = append(files, entry.Path)
@@ -430,19 +454,28 @@ func (p Policy) numstat(repo string, args []string) (FileSummary, error) {
 	if err != nil {
 		return FileSummary{}, err
 	}
-	records := strings.Split(raw.Stdout, "\x00")
+	records := splitNUL(raw.Stdout)
 	files := make([]FileStat, 0)
 	redacted := 0
-	for _, record := range records {
-		if record == "" {
-			continue
-		}
-		fields := strings.Split(record, "\t")
+	for index := 0; index < len(records); index++ {
+		record := records[index]
+		fields := strings.SplitN(record, "\t", 3)
 		if len(fields) < 3 {
-			continue
+			return FileSummary{}, fmt.Errorf("unexpected git numstat format")
 		}
-		rel := fields[len(fields)-1]
-		if secretcheck.IsSecretPath(rel) {
+		rel := fields[2]
+		paths := []string{rel}
+		if rel == "" {
+			if index+2 >= len(records) {
+				return FileSummary{}, fmt.Errorf("unexpected git rename numstat format")
+			}
+			oldPath := records[index+1]
+			newPath := records[index+2]
+			paths = []string{newPath, oldPath}
+			rel = newPath
+			index += 2
+		}
+		if anySecretPath(paths...) {
 			redacted++
 			continue
 		}
@@ -480,18 +513,47 @@ func (p Policy) porcelainEntries(repo string) ([]StatusEntry, error) {
 			code = item[:2]
 		}
 		path := ""
+		originalPath := ""
 		if len(item) > 3 {
 			path = item[3:]
 		}
 		if strings.HasPrefix(code, "R") || strings.HasPrefix(code, "C") {
 			index++
 			if index < len(parts) {
-				path = parts[index]
+				originalPath = parts[index]
 			}
 		}
-		entries = append(entries, StatusEntry{Code: code, Path: path})
+		entries = append(entries, StatusEntry{Code: code, Path: path, OriginalPath: originalPath})
 	}
 	return entries, nil
+}
+
+func entryHasSecretPath(entry StatusEntry) bool {
+	return anySecretPath(entry.Path, entry.OriginalPath)
+}
+
+func anySecretPath(paths ...string) bool {
+	for _, path := range paths {
+		if path != "" && secretcheck.IsSecretPath(path) {
+			return true
+		}
+	}
+	return false
+}
+
+func pathContainsSymlink(repo, rel string) (bool, error) {
+	current := repo
+	for _, part := range strings.Split(filepath.FromSlash(rel), string(filepath.Separator)) {
+		current = filepath.Join(current, part)
+		info, err := os.Lstat(current)
+		if err != nil {
+			return false, err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (p Policy) stagedFiles(repo string) ([]string, error) {
@@ -621,6 +683,7 @@ func readLines(path string) ([]string, error) {
 	defer file.Close()
 	var lines []string
 	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
 	for scanner.Scan() {
 		lines = append(lines, scanner.Text())
 	}

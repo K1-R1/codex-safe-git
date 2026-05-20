@@ -18,6 +18,7 @@ Defaults:
 - binary: `~/.codex/tools/codex-safe-git-go/bin/codex-safe-git-mcp`
 - allowed roots: `~/.codex/worktrees:$HOME/personal/projects`
 - audit log: `~/.codex/log/codex-safe-git-audit.jsonl`
+- protected branches: built-in `main`/`master` plus the repo's configured `init.defaultBranch`
 
 Supported overrides:
 
@@ -26,6 +27,7 @@ CODEX_HOME="$HOME/.codex" \
 CODEX_SAFE_GIT_INSTALL_DIR="$HOME/.codex/tools/codex-safe-git-go" \
 CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS="$HOME/.codex/worktrees:$HOME/personal/projects" \
 CODEX_SAFE_GIT_AUDIT_LOG="$HOME/.codex/log/codex-safe-git-audit.jsonl" \
+CODEX_SAFE_GIT_PROTECTED_BRANCHES="trunk,develop" \
 scripts/install-local.sh
 ```
 
@@ -33,6 +35,10 @@ Set `GO=/absolute/path/to/go` if Go is not on `PATH`. After install, normal Code
 the Go source tree or a Go toolchain.
 
 Use `scripts/install-local.sh --print-config` to print only the MCP config block.
+
+By default, custom install directories must remain under `$CODEX_HOME/tools`. If you need a different
+private tool directory, set `CODEX_SAFE_GIT_ALLOW_EXTERNAL_INSTALL_DIR=1` and keep the path
+user-owned, narrow, and outside any project worktree.
 
 ## MCP Config
 
@@ -49,6 +55,7 @@ enabled = true
 [mcp_servers.codex_safe_git.env]
 CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS = "/Users/you/.codex/worktrees:/Users/you/projects"
 CODEX_SAFE_GIT_AUDIT_LOG = "/Users/you/.codex/log/codex-safe-git-audit.jsonl"
+CODEX_SAFE_GIT_PROTECTED_BRANCHES = "trunk,develop"
 ```
 
 `default_tools_approval_mode = "approve"` applies only to this narrow MCP server. It does not change
@@ -77,6 +84,13 @@ Avoid:
 For highly sensitive work, use `CODEX_SAFE_GIT_ALLOWED_REPOS` with exact repo paths instead of broad
 roots.
 
+## Protected Branches
+
+`main`, `master`, and the repository's configured `init.defaultBranch` are always protected. Add
+team-specific production branch names with `CODEX_SAFE_GIT_PROTECTED_BRANCHES`, using a comma-separated
+list such as `trunk,develop,release/stable`. Protected branches cannot be commit targets, branch
+creation targets, or merge targets.
+
 ## Audit Log
 
 Audit records are JSON Lines. They contain metadata only: action, result, repo path, branch names,
@@ -84,6 +98,8 @@ file names, counts, refusal reasons, and commit hashes. They must not contain fi
 diffs, secrets, credentials, keychain material, shell profiles, or environment dumps.
 
 Keep the audit log under a user-owned path such as `~/.codex/log/codex-safe-git-audit.jsonl`.
+Mutating operations check audit writability before touching Git state and refuse if the audit log is
+unavailable.
 
 ## Troubleshooting
 
@@ -95,6 +111,9 @@ Keep the audit log under a user-owned path such as `~/.codex/log/codex-safe-git-
 - `repository has ambiguous state`: finish or abort the merge, rebase, cherry-pick, revert, bisect,
   or conflict manually.
 - `refusing commit on protected branch`: create or switch to a safe non-default branch.
+- `audit log is not writable`: fix the configured audit path or permissions before retrying.
+- `requested path must not be a symlink`: commit the real file explicitly, or remove the symlink from
+  the requested file list.
 - `merge is not fast-forward`: merge manually or create a branch shape that can fast-forward.
 
 ## Removal
