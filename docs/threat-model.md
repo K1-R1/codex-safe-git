@@ -6,6 +6,7 @@
 - Local Git branch history in those worktrees.
 - Audit log metadata.
 - Codex App and CLI MCP configuration.
+- Local linked worktree paths under configured allowed roots.
 
 ## Trust Boundaries
 
@@ -24,6 +25,9 @@
 - Git pathspec magic or filesystem symlinks expanding a requested file list beyond the user's exact
   intent.
 - Local races where files change between safety checks and commit.
+- Worktree creation into an unintended path, overlapping repository, symlinked parent, or
+  secret-bearing local directory.
+- Checkout to a protected, remote-like, hash-like, or branch-already-checked-out target.
 - Accidental secret commit through path or content scanner gaps.
 - Audit log path misconfiguration causing mutations to happen without durable local metadata.
 - Audit metadata revealing sensitive project structure.
@@ -31,7 +35,7 @@
 
 ## Mitigations
 
-- Expose only six fixed MCP tools.
+- Expose only nine fixed MCP tools.
 - Require exact worktree roots and explicit allowlists/allowed roots.
 - Refuse default-branch mutations.
 - Refuse ambiguous states and pre-staged changes.
@@ -39,7 +43,13 @@
 - Validate the resolved `git` executable before use.
 - Stage exact requested files and verify the staged set.
 - Force literal Git pathspec handling and reject symlinked requested paths.
-- Refuse likely secret paths and likely secret material.
+- Require new worktree paths to be under configured allowed roots, non-existent, non-overlapping,
+  and outside secret-bearing path components.
+- Redact worktree paths that are outside configured allowlists.
+- Refuse checkout to protected branches, remote/ref/hash-like branch names, dirty worktrees, and
+  branches already checked out elsewhere.
+- Refuse likely secret paths and likely secret material before staging, then rescan the staged diff
+  before committing.
 - Write metadata-only audit entries.
 - Check audit writability before mutating Git state.
 
@@ -48,3 +58,5 @@
 - A local attacker with the same user account can race filesystem changes or tamper with MCP config.
 - Secret detection is heuristic and not a complete DLP system.
 - A bad but policy-compliant commit can still be created on a non-default local branch.
+- Local checksum verification proves binary integrity, not authorship; private signing remains an
+  operator-controlled process outside Codex.

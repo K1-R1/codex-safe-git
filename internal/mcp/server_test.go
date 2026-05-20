@@ -10,6 +10,10 @@ import (
 	"strings"
 	"testing"
 
+	"local/codex-safe-git/internal/audit"
+	"local/codex-safe-git/internal/config"
+	"local/codex-safe-git/internal/gitexec"
+	"local/codex-safe-git/internal/gitpolicy"
 	"local/codex-safe-git/internal/mcp"
 	"local/codex-safe-git/internal/testrepo"
 )
@@ -92,6 +96,91 @@ func TestToolCallRejectsUnexpectedArguments(t *testing.T) {
 	}
 }
 
+func TestWorktreeToolCallsReturnStructuredContent(t *testing.T) {
+	repo := testrepo.New(t)
+	policy := rootAllowedPolicy(t, repo)
+	server := mcp.Server{Policy: &policy}
+	target := filepath.Join(repo.Root, "mcp-worktree")
+
+	createReq := `{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"create_worktree","arguments":{"repo_path":` + quote(repo.Path) + `,"worktree_path":` + quote(target) + `,"branch_name":"codex/mcp-worktree"}}}`
+	createResp := server.Handle([]byte(createReq))
+	var createRaw toolCallResponse
+	marshalRoundTrip(t, createResp, &createRaw)
+	if createRaw.Result.IsError {
+		t.Fatalf("unexpected create_worktree refusal: %#v", createRaw.Result.StructuredContent)
+	}
+	if got := createRaw.Result.StructuredContent["worktree_path"]; got != canonicalPath(t, target) {
+		t.Fatalf("unexpected worktree path: %#v", got)
+	}
+
+	listReq := `{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"list_worktrees","arguments":{"repo_path":` + quote(repo.Path) + `}}}`
+	listResp := server.Handle([]byte(listReq))
+	var listRaw toolCallResponse
+	marshalRoundTrip(t, listResp, &listRaw)
+	if listRaw.Result.IsError {
+		t.Fatalf("unexpected list_worktrees refusal: %#v", listRaw.Result.StructuredContent)
+	}
+	if got := listRaw.Result.StructuredContent["result"]; got != "ok" {
+		t.Fatalf("unexpected list_worktrees result: %#v", listRaw.Result.StructuredContent)
+	}
+}
+
+func TestRefusalPayloadMatchesGolden(t *testing.T) {
+	repo := testrepo.New(t)
+	server := mcp.Server{Policy: &repo.Policy}
+
+	req := `{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"git_status","arguments":{"repo_path":` + quote(filepath.Join(repo.Root, "outside")) + `}}}`
+	resp := server.Handle([]byte(req))
+	var raw toolCallResponse
+	marshalRoundTrip(t, resp, &raw)
+
+	goldenPath := filepath.Join("..", "..", "testdata", "golden", "refusal.json")
+	data, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want map[string]any
+	if err := json.Unmarshal(data, &want); err != nil {
+		t.Fatal(err)
+	}
+	if !raw.Result.IsError {
+		t.Fatalf("expected refusal payload: %#v", raw.Result)
+	}
+	if got, wantText := raw.Result.StructuredContent["reason"], want["reason"]; got != wantText {
+		t.Fatalf("unexpected refusal: got %#v want %#v", got, wantText)
+	}
+}
+
+func TestToolResultSchemaCoversCurrentResultShapes(t *testing.T) {
+	schemaPath := filepath.Join("..", "..", "docs", "schemas", "tool-results.schema.json")
+	data, err := os.ReadFile(schemaPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var schema struct {
+		OneOf []struct {
+			Required []string `json:"required"`
+		} `json:"oneOf"`
+	}
+	if err := json.Unmarshal(data, &schema); err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range [][]string{
+		{"result", "repo", "branch", "is_detached", "ambiguous_reasons", "has_staged_changes", "clean", "entries", "redacted_secret_path_count"},
+		{"result", "repo", "unstaged", "staged", "untracked"},
+		{"result", "repo", "commit_hash", "files", "audit_summary"},
+		{"result", "repo", "branch", "action", "head_commit"},
+		{"result", "repo", "source_branch", "target_branch", "action", "source_head", "target_head_before", "target_head_after"},
+		{"result", "repo", "worktrees", "redacted_unallowlisted_count"},
+		{"result", "repo", "worktree_path", "branch", "base_branch", "base_head", "head_commit", "action"},
+		{"result", "reason"},
+	} {
+		if !schemaHasRequired(schema.OneOf, required) {
+			t.Fatalf("schema missing required shape: %#v", required)
+		}
+	}
+}
+
 func TestStdioServerRoundTrip(t *testing.T) {
 	repo := testrepo.New(t)
 	t.Setenv("CODEX_SAFE_GIT_ALLOWED_REPOS", repo.Path)
@@ -170,4 +259,48 @@ func quote(value string) string {
 		panic(err)
 	}
 	return string(data)
+}
+
+func rootAllowedPolicy(t *testing.T, repo testrepo.Repo) gitpolicy.Policy {
+	t.Helper()
+	runner, err := gitexec.NewRunner()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return gitpolicy.Policy{
+		Config: config.Config{
+			AllowedRepos:     map[string]struct{}{},
+			AllowedRepoRoots: map[string]struct{}{canonicalPath(t, repo.Root): {}},
+			AuditLog:         repo.AuditLog,
+		},
+		Git:   runner,
+		Audit: audit.Logger{Path: repo.AuditLog},
+	}
+}
+
+func canonicalPath(t *testing.T, path string) string {
+	t.Helper()
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+		return filepath.Clean(resolved)
+	}
+	return filepath.Clean(abs)
+}
+
+func schemaHasRequired(shapes []struct {
+	Required []string `json:"required"`
+}, required []string) bool {
+	want := append([]string(nil), required...)
+	sort.Strings(want)
+	for _, shape := range shapes {
+		got := append([]string(nil), shape.Required...)
+		sort.Strings(got)
+		if strings.Join(got, "\x00") == strings.Join(want, "\x00") {
+			return true
+		}
+	}
+	return false
 }

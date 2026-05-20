@@ -4,6 +4,8 @@
   "commit_files",
   "ensure_commit_branch",
   "create_commit_branch",
-  "merge_branch"
+  "merge_branch",
+  "list_worktrees",
+  "create_worktree",
+  "safe_checkout"
 ]
-

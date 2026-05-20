@@ -10,13 +10,15 @@ From the `codex-safe-git` source directory:
 ```sh
 scripts/install-local.sh --dry-run
 scripts/install-local.sh
+scripts/install-local.sh --verify-install
 ```
 
 Defaults:
 
 - install path: `~/.codex/tools/codex-safe-git-go`
 - binary: `~/.codex/tools/codex-safe-git-go/bin/codex-safe-git-mcp`
-- allowed roots: `~/.codex/worktrees:$HOME/personal/projects`
+- checksum: `~/.codex/tools/codex-safe-git-go/bin/codex-safe-git-mcp.sha256`
+- allowed roots: `~/.codex/worktrees`
 - audit log: `~/.codex/log/codex-safe-git-audit.jsonl`
 - protected branches: built-in `main`/`master` plus the repo's configured `init.defaultBranch`
 
@@ -34,7 +36,13 @@ scripts/install-local.sh
 Set `GO=/absolute/path/to/go` if Go is not on `PATH`. After install, normal Codex use does not need
 the Go source tree or a Go toolchain.
 
+When using the default allowed root, the installer creates `~/.codex/worktrees` so the printed config
+is immediately usable. If you override `CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS`, create those directories
+first; the MCP refuses missing allowed roots at startup rather than silently widening scope.
+
 Use `scripts/install-local.sh --print-config` to print only the MCP config block.
+Use `scripts/install-local.sh --verify-install` to verify the installed binary against its SHA-256
+sidecar checksum.
 
 By default, custom install directories must remain under `$CODEX_HOME/tools`. If you need a different
 private tool directory, set `CODEX_SAFE_GIT_ALLOW_EXTERNAL_INSTALL_DIR=1` and keep the path
@@ -48,7 +56,7 @@ Use the config printed by the installer. The active production server keeps the 
 ```toml
 [mcp_servers.codex_safe_git]
 command = "/Users/you/.codex/tools/codex-safe-git-go/bin/codex-safe-git-mcp"
-enabled_tools = ["git_status", "git_diff_summary", "commit_files", "ensure_commit_branch", "create_commit_branch", "merge_branch"]
+enabled_tools = ["git_status", "git_diff_summary", "commit_files", "ensure_commit_branch", "create_commit_branch", "merge_branch", "list_worktrees", "create_worktree", "safe_checkout"]
 default_tools_approval_mode = "approve"
 enabled = true
 
@@ -107,6 +115,20 @@ Before landing a Codex branch:
 This boundary is intentional: Codex may prepare, commit, branch, and fast-forward between safe
 non-default local branches, but it cannot directly mutate production/default branch targets.
 
+## Worktree And Checkout Tools
+
+`list_worktrees` shows only worktrees that are themselves explicitly allowlisted or under an allowed
+repo root. Worktrees outside those roots are counted and redacted to avoid disclosing unrelated local
+paths.
+
+`create_worktree` creates a linked local worktree on a new safe branch. The requested path must not
+exist, its parent must already exist, it must be under an allowed root or exact allowlist entry, and
+it must not overlap another worktree or pass through secret-bearing path components. The source
+worktree must be clean and unambiguous.
+
+`safe_checkout` switches only clean worktrees to existing non-protected local branches. It refuses
+remote/ref/hash-like branch names and branches already checked out in another worktree.
+
 ## Audit Log
 
 Audit records are JSON Lines. They contain metadata only: action, result, repo path, branch names,
@@ -116,6 +138,21 @@ diffs, secrets, credentials, keychain material, shell profiles, or environment d
 Keep the audit log under a user-owned path such as `~/.codex/log/codex-safe-git-audit.jsonl`.
 Mutating operations check audit writability before touching Git state and refuse if the audit log is
 unavailable.
+
+See [Audit policy](audit-policy.md) for the private/team retention, review, and rotation policy.
+
+## Private Binary Integrity
+
+The installer writes a SHA-256 checksum beside the installed binary and verifies it immediately after
+build. Before copying a private binary between machines, copy both files and run:
+
+```sh
+scripts/install-local.sh --verify-install
+```
+
+Checksum verification proves file integrity, not authorship. See
+[Private binary distribution](private-binary-distribution.md) for the signing strategy and manual key
+handling boundary.
 
 ## Troubleshooting
 
@@ -131,6 +168,12 @@ unavailable.
 - `requested path must not be a symlink`: commit the real file explicitly, or remove the symlink from
   the requested file list.
 - `merge is not fast-forward`: merge manually or create a branch shape that can fast-forward.
+- `worktree_path is not explicitly allowlisted`: create the worktree under an allowed root or add an
+  exact allowlist entry, then reload the Codex session.
+- `branch is already checked out in another worktree`: use that worktree, choose another branch, or
+  ask the operator to move the branch manually.
+- `worktree_path overlaps an existing worktree`: choose a sibling path outside all existing worktree
+  roots.
 
 ## Removal
 

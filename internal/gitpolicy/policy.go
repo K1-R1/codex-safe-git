@@ -53,7 +53,13 @@ func (p Policy) GitStatus(repoPath string) (StatusResult, error) {
 		p.auditRefusal("git_status", repoPath, err)
 		return StatusResult{}, err
 	}
-	if err := p.auditSuccess(audit.Entry{Action: "git_status", Result: "ok", Repo: repo, FileCount: audit.IntPtr(len(result.Entries))}); err != nil {
+	if err := p.auditSuccess(audit.Entry{
+		Action:                  "git_status",
+		Result:                  "ok",
+		Repo:                    repo,
+		FileCount:               audit.IntPtr(len(result.Entries)),
+		RedactedSecretPathCount: audit.IntPtr(result.RedactedSecretPathCount),
+	}); err != nil {
 		return StatusResult{}, err
 	}
 	return result, nil
@@ -269,6 +275,200 @@ func (p Policy) MergeBranch(repoPath, sourceBranch string, targetBranch *string)
 	}, nil
 }
 
+func (p Policy) ListWorktrees(repoPath string) (ListWorktreesResult, error) {
+	repo, err := p.resolveAllowedRepo(repoPath)
+	if err != nil {
+		p.auditRefusal("list_worktrees", repoPath, err)
+		return ListWorktreesResult{}, err
+	}
+	if err := p.requireGitRepo(repo); err != nil {
+		p.auditRefusal("list_worktrees", repoPath, err)
+		return ListWorktreesResult{}, err
+	}
+	if err := p.requireNoExecutionConfig(repo); err != nil {
+		p.auditRefusal("list_worktrees", repoPath, err)
+		return ListWorktreesResult{}, err
+	}
+	worktrees, err := p.worktrees(repo)
+	if err != nil {
+		p.auditRefusal("list_worktrees", repoPath, err)
+		return ListWorktreesResult{}, err
+	}
+	visible := make([]WorktreeEntry, 0, len(worktrees))
+	redacted := 0
+	for _, worktree := range worktrees {
+		if !p.isAllowedPath(worktree.Path) {
+			redacted++
+			continue
+		}
+		visible = append(visible, WorktreeEntry{
+			Path:       worktree.Path,
+			Head:       worktree.Head,
+			Branch:     worktree.Branch,
+			IsCurrent:  samePath(worktree.Path, repo),
+			IsDetached: worktree.Branch == nil,
+			IsBare:     worktree.IsBare,
+			IsLocked:   worktree.IsLocked,
+			IsPrunable: worktree.IsPrunable,
+		})
+	}
+	sort.Slice(visible, func(i, j int) bool { return visible[i].Path < visible[j].Path })
+	if err := p.auditSuccess(audit.Entry{
+		Action:                     "list_worktrees",
+		Result:                     "ok",
+		Repo:                       repo,
+		FileCount:                  audit.IntPtr(len(visible)),
+		RedactedUnallowlistedCount: audit.IntPtr(redacted),
+	}); err != nil {
+		return ListWorktreesResult{}, err
+	}
+	return ListWorktreesResult{Result: "ok", Repo: repo, Worktrees: visible, RedactedUnallowlistedCount: redacted}, nil
+}
+
+func (p Policy) CreateWorktree(repoPath, worktreePath, branchName string, baseBranch *string) (CreateWorktreeResult, error) {
+	branch, branchErr := p.normaliseBranchName(branchName)
+	target, targetErr := normaliseNewWorktreePath(worktreePath)
+	base := ""
+	var baseErr error
+	if baseBranch != nil {
+		base, baseErr = p.normaliseBranchName(*baseBranch)
+	}
+	repo, err := p.resolveAllowedRepo(repoPath)
+	if err == nil {
+		err = p.requireGitRepo(repo)
+	}
+	if err == nil {
+		err = p.requireNoExecutionConfig(repo)
+	}
+	if err == nil {
+		_, err = p.requireCleanWorktreeState(repo)
+	}
+	if branchErr != nil {
+		err = branchErr
+	}
+	if targetErr != nil {
+		err = targetErr
+	}
+	if baseErr != nil {
+		err = baseErr
+	}
+	if err == nil && !p.isAllowedPath(target) {
+		err = refuse("worktree_path is not explicitly allowlisted or under an allowed repo root")
+	}
+	if err == nil {
+		err = p.requireBranchNotProtected(repo, branch, "branch")
+	}
+	if err == nil {
+		var existing string
+		existing, err = p.localBranchHead(repo, branch)
+		if err == nil && existing != "" {
+			err = refuse("requested branch already exists")
+		}
+	}
+	baseHead := ""
+	if err == nil {
+		if base == "" {
+			baseHead, err = p.currentHead(repo)
+		} else {
+			baseHead, err = p.requireLocalBranch(repo, base, "base_branch")
+		}
+	}
+	if err == nil {
+		err = p.requireWorktreePathAvailable(repo, target)
+	}
+	if err == nil {
+		err = p.requireAuditWritable()
+	}
+	if err != nil {
+		p.Audit.Write(audit.Entry{Action: "create_worktree", Result: "refused", Repo: repoPath, WorktreePath: worktreePath, Branch: branchOrInput(branch, branchName), SourceBranch: branchOrInput(base, optionalBranch(baseBranch)), Reason: err.Error()})
+		return CreateWorktreeResult{}, err
+	}
+
+	baseRef := "HEAD"
+	if base != "" {
+		baseRef = "refs/heads/" + base
+	}
+	if _, err = p.Git.Run(repo, "worktree", "add", "-b", branch, target, baseRef); err != nil {
+		p.Audit.Write(audit.Entry{Action: "create_worktree", Result: "refused", Repo: repoPath, WorktreePath: target, Branch: branch, SourceBranch: base, Reason: err.Error()})
+		return CreateWorktreeResult{}, err
+	}
+	head, err := p.currentHead(target)
+	if err != nil {
+		p.Audit.Write(audit.Entry{Action: "create_worktree", Result: "refused", Repo: repoPath, WorktreePath: target, Branch: branch, SourceBranch: base, Reason: err.Error()})
+		return CreateWorktreeResult{}, err
+	}
+	if err := p.auditSuccess(audit.Entry{Action: "create_worktree", Result: "created", Repo: repo, WorktreePath: target, Branch: branch, SourceBranch: base, CommitHash: head}); err != nil {
+		return CreateWorktreeResult{}, err
+	}
+	var basePtr *string
+	if base != "" {
+		basePtr = &base
+	}
+	return CreateWorktreeResult{
+		Result:       "ok",
+		Repo:         repo,
+		WorktreePath: target,
+		Branch:       branch,
+		BaseBranch:   basePtr,
+		BaseHead:     baseHead,
+		HeadCommit:   head,
+		Action:       "created",
+	}, nil
+}
+
+func (p Policy) SafeCheckout(repoPath, branchName string) (CheckoutResult, error) {
+	branch, branchErr := p.normaliseBranchName(branchName)
+	repo, err := p.resolveAllowedRepo(repoPath)
+	if err == nil {
+		err = p.requireGitRepo(repo)
+	}
+	if err == nil {
+		err = p.requireNoExecutionConfig(repo)
+	}
+	var state repoState
+	if err == nil {
+		state, err = p.requireCleanWorktreeState(repo)
+	}
+	if branchErr != nil {
+		err = branchErr
+	}
+	if err == nil {
+		err = p.requireBranchNotProtected(repo, branch, "branch")
+	}
+	if err == nil {
+		_, err = p.requireLocalBranch(repo, branch, "branch_name")
+	}
+	if err == nil {
+		err = p.requireBranchNotCheckedOutElsewhere(repo, branch)
+	}
+	action := "switched"
+	if err == nil && state.Branch != nil && *state.Branch == branch {
+		action = "already_on_branch"
+	}
+	if err == nil {
+		err = p.requireAuditWritable()
+	}
+	if err != nil {
+		p.Audit.Write(audit.Entry{Action: "safe_checkout", Result: "refused", Repo: repoPath, Branch: branchOrInput(branch, branchName), Reason: err.Error()})
+		return CheckoutResult{}, err
+	}
+	if action == "switched" {
+		if _, err = p.Git.Run(repo, "switch", branch); err != nil {
+			p.Audit.Write(audit.Entry{Action: "safe_checkout", Result: "refused", Repo: repoPath, Branch: branch, Reason: err.Error()})
+			return CheckoutResult{}, err
+		}
+	}
+	head, err := p.currentHead(repo)
+	if err != nil {
+		p.Audit.Write(audit.Entry{Action: "safe_checkout", Result: "refused", Repo: repoPath, Branch: branch, Reason: err.Error()})
+		return CheckoutResult{}, err
+	}
+	if err := p.auditSuccess(audit.Entry{Action: "safe_checkout", Result: action, Repo: repo, Branch: branch, CommitHash: head}); err != nil {
+		return CheckoutResult{}, err
+	}
+	return CheckoutResult{Result: "ok", Repo: repo, Branch: branch, Action: action, HeadCommit: head}, nil
+}
+
 func (p Policy) CommitFiles(repoPath string, files []string, message string, body *string) (CommitResult, error) {
 	fileList := append([]string(nil), files...)
 	if err := rejectAttribution(message, body); err != nil {
@@ -326,6 +526,11 @@ func (p Policy) CommitFiles(repoPath string, files []string, message string, bod
 		p.Audit.Write(audit.Entry{Action: "commit_files", Result: "refused", Repo: repoPath, Files: fileList, Reason: err.Error()})
 		return CommitResult{}, err
 	}
+	if err := p.rejectLikelySecretMaterialInStagedDiff(repo, fileList); err != nil {
+		p.unstageBestEffort(repo, fileList)
+		p.Audit.Write(audit.Entry{Action: "commit_files", Result: "refused", Repo: repoPath, Files: fileList, Reason: err.Error()})
+		return CommitResult{}, err
+	}
 	commitArgs := []string{"commit", "--no-gpg-sign", "-m", message}
 	if body != nil && *body != "" {
 		commitArgs = append(commitArgs, "-m", *body)
@@ -349,6 +554,6 @@ func (p Policy) CommitFiles(repoPath string, files []string, message string, bod
 		Repo:         repo,
 		CommitHash:   head,
 		Files:        fileList,
-		AuditSummary: "allowlisted repo; clear state; exact staged file set; no likely secrets; attribution-free message",
+		AuditSummary: "allowlisted repo; clear state; exact staged file set; pre-stage and staged secret scans; attribution-free message",
 	}, nil
 }

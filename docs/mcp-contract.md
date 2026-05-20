@@ -9,7 +9,7 @@ intentional contract changes.
 
 ## Tool Surface
 
-The server exposes exactly six tools:
+The server exposes exactly nine tools:
 
 - `git_status(repo_path)`
 - `git_diff_summary(repo_path)`
@@ -17,9 +17,24 @@ The server exposes exactly six tools:
 - `ensure_commit_branch(repo_path, branch_name)`
 - `create_commit_branch(repo_path, branch_name)`
 - `merge_branch(repo_path, source_branch, target_branch?)`
+- `list_worktrees(repo_path)`
+- `create_worktree(repo_path, worktree_path, branch_name, base_branch?)`
+- `safe_checkout(repo_path, branch_name)`
 
 No tool accepts arbitrary Git arguments, shell commands, remotes, tags, force options, push, pull,
 fetch, reset, clean, rebase, deploy, PR, publish, or credential operations.
+
+`list_worktrees` returns only worktree paths that are themselves explicitly allowlisted or under an
+allowed repo root. Unallowlisted worktrees are counted and redacted.
+
+`create_worktree` creates a linked local worktree at a new path that is explicitly allowlisted or
+under an allowed repo root. It creates a new safe local branch, refuses protected branch names,
+requires a clean source worktree, refuses overlapping worktree paths, avoids remotes, and checks audit
+writability before running `git worktree add`.
+
+`safe_checkout` switches a clean worktree to an existing safe local branch. It refuses protected
+target branches, missing branches, branches already checked out in another worktree, ambiguous Git
+states, dirty worktrees, remotes, refs, hashes, and unsafe branch syntax.
 
 ## Result Shapes
 
@@ -51,4 +66,8 @@ Refusals also set `isError: true`.
   keychain material, shell profiles, or environment dumps.
 - Mutating operations require a writable audit log before Git state is changed.
 - Requested commit file paths are literal and must not resolve through symlinks.
-- New tools require an explicit product decision. The default stance is to keep the surface closed.
+- `commit_files` scans likely secret material before staging and rescans the staged diff before
+  committing.
+- Worktree paths returned by `list_worktrees` must not disclose unallowlisted local paths.
+- New tools require an explicit product decision. The default stance remains to keep the surface
+  closed.

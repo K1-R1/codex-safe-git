@@ -2,8 +2,8 @@
 
 ## Current State
 
-Codex Safe Git is now the canonical Go implementation. The earlier Python prototype has been
-removed after local, direct stdio, Codex App, and Codex CLI validation.
+Codex Safe Git is the canonical Go implementation. The earlier Python prototype has been removed
+after local, direct stdio, Codex App, and Codex CLI validation.
 
 The active local MCP config should point to:
 
@@ -11,7 +11,7 @@ The active local MCP config should point to:
 ~/.codex/tools/codex-safe-git-go/bin/codex-safe-git-mcp
 ```
 
-The MCP surface remains exactly:
+The MCP surface is exactly:
 
 - `git_status`
 - `git_diff_summary`
@@ -19,31 +19,33 @@ The MCP surface remains exactly:
 - `ensure_commit_branch`
 - `create_commit_branch`
 - `merge_branch`
-
-## Remaining Private/Team Work
-
-- Decide audit log retention, review, and rotation policy for team machines.
-- Add CI coverage for Go formatting, vet, tests, race tests, installer dry-run, direct stdio MCP smoke
-  tests, and the safety regression cases in the local suite.
-- Add a private team onboarding guide for installing, updating, and configuring allowed repo roots.
-- Add checksum/signing strategy for private binary distribution before broader team rollout.
-- Decide the team's preferred protected-branch landing path. `codex-safe-git` should continue to
-  refuse direct merges into `main`, `master`, defaults, and configured production branches; final
-  protected-branch integration belongs in a human-reviewed PR, Codex review/merge control, or manual
-  operator merge.
-- Keep open-source readiness deferred until explicitly approved.
-
-## Possible Narrow Local Tools
-
-Only local, deterministic, safety-reviewed tools should be considered. Candidate tools remain
-deferred:
-
-- `create_worktree`
 - `list_worktrees`
-- a stricter `safe_checkout`
+- `create_worktree`
+- `safe_checkout`
 
-Any new tool must preserve exact allowlists, refuse ambiguous states, avoid remotes, and never
-become an arbitrary Git command runner.
+## Completed Private/Team Readiness
+
+- CI coverage is defined for formatting, vet, tests, race tests, installer checks, direct stdio MCP
+  smoke tests, and safety regression cases.
+- `scripts/verify.sh` is the one-command local verification path.
+- The deferred local worktree tools have been implemented with explicit safety constraints and test
+  coverage.
+- The audit retention, review, and manual rotation policy is documented in
+  [Audit policy](audit-policy.md).
+- Private/team onboarding is documented in [Team onboarding](team-onboarding.md).
+- Private binary integrity uses installer-generated SHA-256 checksums and `--verify-install`.
+- Private signing strategy is documented without requiring Codex to access signing keys.
+- Protected-branch landing remains outside this MCP and is documented as a human-reviewed workflow.
+
+Automated audit deletion or rotation is intentionally not implemented. That is now a documented
+non-goal because audit movement should remain operator-owned and visible.
+
+## Remaining Work
+
+Only full open-source preparation remains deferred until explicitly approved. That future work would
+include public release policy, public documentation polish, public support expectations, public
+licensing/release review, public security disclosure process, and any public distribution signing
+process.
 
 ## Permanent Non-Goals
 
@@ -53,4 +55,4 @@ These are not future features:
 - arbitrary shell
 - push, pull, fetch, reset, clean, rebase, tag, force-push, branch deletion, remote mutation,
   deploys, package publishing, or PR creation
-- secret, credential, token, wallet, keychain, or shell-profile access
+- secret, credential, token, wallet, keychain, shell-profile, or private signing key access

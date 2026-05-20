@@ -9,18 +9,20 @@ import (
 )
 
 type Entry struct {
-	Timestamp               string   `json:"timestamp"`
-	Action                  string   `json:"action"`
-	Result                  string   `json:"result"`
-	Repo                    string   `json:"repo,omitempty"`
-	Files                   []string `json:"files,omitempty"`
-	CommitHash              string   `json:"commit_hash,omitempty"`
-	Branch                  string   `json:"branch,omitempty"`
-	Reason                  string   `json:"reason,omitempty"`
-	FileCount               *int     `json:"file_count,omitempty"`
-	RedactedSecretPathCount *int     `json:"redacted_secret_path_count,omitempty"`
-	SourceBranch            string   `json:"source_branch,omitempty"`
-	TargetBranch            string   `json:"target_branch,omitempty"`
+	Timestamp                  string   `json:"timestamp"`
+	Action                     string   `json:"action"`
+	Result                     string   `json:"result"`
+	Repo                       string   `json:"repo,omitempty"`
+	Files                      []string `json:"files,omitempty"`
+	CommitHash                 string   `json:"commit_hash,omitempty"`
+	Branch                     string   `json:"branch,omitempty"`
+	WorktreePath               string   `json:"worktree_path,omitempty"`
+	Reason                     string   `json:"reason,omitempty"`
+	FileCount                  *int     `json:"file_count,omitempty"`
+	RedactedSecretPathCount    *int     `json:"redacted_secret_path_count,omitempty"`
+	RedactedUnallowlistedCount *int     `json:"redacted_unallowlisted_count,omitempty"`
+	SourceBranch               string   `json:"source_branch,omitempty"`
+	TargetBranch               string   `json:"target_branch,omitempty"`
 }
 
 type Logger struct {

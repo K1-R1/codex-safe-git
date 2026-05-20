@@ -13,7 +13,7 @@ import (
 )
 
 const ProtocolVersion = "2025-11-25"
-const ServerVersion = "0.1.0"
+const ServerVersion = "0.2.0"
 
 type Server struct {
 	Policy *gitpolicy.Policy
@@ -76,6 +76,13 @@ type mergeArgs struct {
 	TargetBranch *string `json:"target_branch,omitempty"`
 }
 
+type createWorktreeArgs struct {
+	RepoPath     string  `json:"repo_path"`
+	WorktreePath string  `json:"worktree_path"`
+	BranchName   string  `json:"branch_name"`
+	BaseBranch   *string `json:"base_branch,omitempty"`
+}
+
 func Main(stdin io.Reader, stdout io.Writer) int {
 	server := Server{}
 	scanner := bufio.NewScanner(stdin)
@@ -123,7 +130,7 @@ func (s Server) Handle(raw []byte) *response {
 				"title":   "Codex Safe Git",
 				"version": ServerVersion,
 			},
-			"instructions": "Use only git_status, git_diff_summary, ensure_commit_branch, create_commit_branch, commit_files, and merge_branch. Repos must be explicitly allowlisted by environment or be exact Git worktree roots under an explicit allowed repo root.",
+			"instructions": "Use only git_status, git_diff_summary, commit_files, ensure_commit_branch, create_commit_branch, merge_branch, list_worktrees, create_worktree, and safe_checkout. Repos must be explicitly allowlisted by environment or be exact Git worktree roots under an explicit allowed repo root.",
 		})
 	case "tools/list":
 		return result(req.ID, map[string]any{"tools": tools()})
@@ -185,6 +192,24 @@ func (s Server) callTool(raw json.RawMessage) toolPayload {
 			return refusalPayload(err.Error())
 		}
 		payload, err = policy.MergeBranch(args.RepoPath, args.SourceBranch, args.TargetBranch)
+	case "list_worktrees":
+		var args repoPathArgs
+		if err := decodeExact(params.Arguments, &args); err != nil {
+			return refusalPayload(err.Error())
+		}
+		payload, err = policy.ListWorktrees(args.RepoPath)
+	case "create_worktree":
+		var args createWorktreeArgs
+		if err := decodeExact(params.Arguments, &args); err != nil {
+			return refusalPayload(err.Error())
+		}
+		payload, err = policy.CreateWorktree(args.RepoPath, args.WorktreePath, args.BranchName, args.BaseBranch)
+	case "safe_checkout":
+		var args branchArgs
+		if err := decodeExact(params.Arguments, &args); err != nil {
+			return refusalPayload(err.Error())
+		}
+		payload, err = policy.SafeCheckout(args.RepoPath, args.BranchName)
 	default:
 		return refusalPayload("unsupported tool: " + params.Name)
 	}
@@ -265,6 +290,19 @@ func tools() []map[string]any {
 			"repo_path":     map[string]any{"type": "string"},
 			"source_branch": map[string]any{"type": "string"},
 			"target_branch": map[string]any{"type": "string"},
+		}),
+		tool("list_worktrees", "List Worktrees", "Return local worktrees visible under the configured allowlist, redacting unallowlisted paths.", []string{"repo_path"}, map[string]any{
+			"repo_path": map[string]any{"type": "string"},
+		}),
+		tool("create_worktree", "Create Worktree", "Create a linked local worktree on a new safe non-protected branch under an allowed root.", []string{"repo_path", "worktree_path", "branch_name"}, map[string]any{
+			"repo_path":     map[string]any{"type": "string"},
+			"worktree_path": map[string]any{"type": "string"},
+			"branch_name":   map[string]any{"type": "string"},
+			"base_branch":   map[string]any{"type": "string"},
+		}),
+		tool("safe_checkout", "Safe Checkout", "Switch a clean worktree to an existing safe non-protected local branch.", []string{"repo_path", "branch_name"}, map[string]any{
+			"repo_path":   map[string]any{"type": "string"},
+			"branch_name": map[string]any{"type": "string"},
 		}),
 	}
 }

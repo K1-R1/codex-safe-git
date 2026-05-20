@@ -77,6 +77,43 @@ type MergeResult struct {
 	TargetHeadAfter  string `json:"target_head_after"`
 }
 
+type WorktreeEntry struct {
+	Path       string  `json:"path"`
+	Head       string  `json:"head"`
+	Branch     *string `json:"branch"`
+	IsCurrent  bool    `json:"is_current"`
+	IsDetached bool    `json:"is_detached"`
+	IsBare     bool    `json:"is_bare"`
+	IsLocked   bool    `json:"is_locked"`
+	IsPrunable bool    `json:"is_prunable"`
+}
+
+type ListWorktreesResult struct {
+	Result                     string          `json:"result"`
+	Repo                       string          `json:"repo"`
+	Worktrees                  []WorktreeEntry `json:"worktrees"`
+	RedactedUnallowlistedCount int             `json:"redacted_unallowlisted_count"`
+}
+
+type CreateWorktreeResult struct {
+	Result       string  `json:"result"`
+	Repo         string  `json:"repo"`
+	WorktreePath string  `json:"worktree_path"`
+	Branch       string  `json:"branch"`
+	BaseBranch   *string `json:"base_branch"`
+	BaseHead     string  `json:"base_head"`
+	HeadCommit   string  `json:"head_commit"`
+	Action       string  `json:"action"`
+}
+
+type CheckoutResult struct {
+	Result     string `json:"result"`
+	Repo       string `json:"repo"`
+	Branch     string `json:"branch"`
+	Action     string `json:"action"`
+	HeadCommit string `json:"head_commit"`
+}
+
 type RefusalResult struct {
 	Result string `json:"result"`
 	Reason string `json:"reason"`

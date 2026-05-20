@@ -14,6 +14,9 @@ CLI.
   - `ensure_commit_branch`
   - `create_commit_branch`
   - `merge_branch`
+  - `list_worktrees`
+  - `create_worktree`
+  - `safe_checkout`
 - Use explicit allowed repos or allowed repo roots.
 - Use an explicit audit log path.
 - Configure extra production branch names with `CODEX_SAFE_GIT_PROTECTED_BRANCHES` when a team uses
@@ -25,21 +28,20 @@ CLI.
 From `codex-safe-git/`:
 
 ```sh
-go fmt ./...
-go vet ./...
-go test ./...
-go test -race ./...
+scripts/verify.sh
 ```
 
-If Go is not installed globally, set `GO=/absolute/path/to/go` for installer scripts and call the Go
-binary directly for local checks.
+If Go is not installed globally, set `GO=/absolute/path/to/go` when running the script.
 
 Expected evidence:
 
 - Formatting exits cleanly.
 - Vet exits cleanly.
-- Unit, integration-style policy, and MCP tests pass.
+- Unit, integration-style policy, MCP tests, and coverage-reporting test runs pass.
 - Race tests pass where practical.
+- Installer dry-run and config printing succeed.
+- A temporary install writes and verifies a SHA-256 checksum.
+- Direct stdio MCP smoke validation succeeds.
 - Temporary repos and audit logs are cleaned.
 
 ## Direct Stdio Validation
@@ -50,8 +52,11 @@ over stdin/stdout before changing Codex config.
 Expected evidence:
 
 - `serverInfo.name` is `codex-safe-git`.
-- `tools/list` exposes only the six intended tools.
+- `tools/list` exposes only the nine intended tools.
 - `git_status` or `git_diff_summary` works for an allowed repo root.
+- `list_worktrees` redacts worktrees outside the allowlist.
+- `create_worktree` can create a disposable linked worktree under an allowed root.
+- `safe_checkout` can switch that linked worktree to another existing non-protected local branch.
 - An outside-root call returns `{ "result": "refused", "reason": "..." }`.
 
 ## Installer Verification
@@ -60,6 +65,7 @@ Expected evidence:
 scripts/install-local.sh --dry-run
 scripts/install-local.sh --print-config
 scripts/install-local.sh
+scripts/install-local.sh --verify-install
 ```
 
 Expected evidence:
@@ -67,6 +73,9 @@ Expected evidence:
 - The install path is stable, user-owned, and not a source worktree dependency.
 - The printed config uses the Go binary.
 - The config has explicit allowed roots and audit log path.
+- The default allowed root `~/.codex/worktrees` exists after install.
+- The installed binary has a sibling `.sha256` file.
+- `--verify-install` detects the binary checksum correctly.
 - The installer refuses canonical unsafe install paths such as `$CODEX_HOME/..`.
 - The installed binary runs without a source worktree dependency.
 
@@ -84,6 +93,10 @@ Through the App MCP tools, prove:
 - symlink and literal-pathspec exact-file safeguards
 - safe branch creation or preparation
 - fast-forward merge into a non-default local target
+- allowed worktree listing
+- unallowlisted worktree path redaction
+- safe linked worktree creation on a new non-protected local branch
+- strict checkout to an existing non-protected local branch
 - exact-file commit
 - metadata-only audit logging
 

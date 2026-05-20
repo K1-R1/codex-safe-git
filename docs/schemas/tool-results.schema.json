@@ -83,6 +83,35 @@
     },
     {
       "type": "object",
+      "required": ["result", "repo", "worktrees", "redacted_unallowlisted_count"],
+      "properties": {
+        "result": { "const": "ok" },
+        "repo": { "type": "string" },
+        "worktrees": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/worktree_entry" }
+        },
+        "redacted_unallowlisted_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["result", "repo", "worktree_path", "branch", "base_branch", "base_head", "head_commit", "action"],
+      "properties": {
+        "result": { "const": "ok" },
+        "repo": { "type": "string" },
+        "worktree_path": { "type": "string" },
+        "branch": { "type": "string" },
+        "base_branch": { "type": ["string", "null"] },
+        "base_head": { "type": "string" },
+        "head_commit": { "type": "string" },
+        "action": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
       "required": ["result", "reason"],
       "properties": {
         "result": { "const": "refused" },
@@ -119,6 +148,21 @@
       "properties": {
         "files": { "type": "array", "items": { "type": "string" } },
         "redacted_secret_path_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "worktree_entry": {
+      "type": "object",
+      "required": ["path", "head", "branch", "is_current", "is_detached", "is_bare", "is_locked", "is_prunable"],
+      "properties": {
+        "path": { "type": "string" },
+        "head": { "type": "string" },
+        "branch": { "type": ["string", "null"] },
+        "is_current": { "type": "boolean" },
+        "is_detached": { "type": "boolean" },
+        "is_bare": { "type": "boolean" },
+        "is_locked": { "type": "boolean" },
+        "is_prunable": { "type": "boolean" }
       },
       "additionalProperties": false
     }

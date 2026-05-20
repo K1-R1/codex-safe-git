@@ -20,6 +20,15 @@ type repoState struct {
 	HasStagedChanges bool
 }
 
+type rawWorktree struct {
+	Path       string
+	Head       string
+	Branch     *string
+	IsBare     bool
+	IsLocked   bool
+	IsPrunable bool
+}
+
 func refuse(reason string) Refusal {
 	return Refusal{Reason: reason}
 }
@@ -60,6 +69,19 @@ func (p Policy) resolveAllowedRepo(repoPath string) (string, error) {
 		}
 	}
 	return "", refuse("repo_path is not explicitly allowlisted or under an allowed repo root")
+}
+
+func (p Policy) isAllowedPath(path string) bool {
+	cleaned := canonicalCleanPath(path)
+	if _, ok := p.Config.AllowedRepos[cleaned]; ok {
+		return true
+	}
+	for root := range p.Config.AllowedRepoRoots {
+		if pathWithin(cleaned, root) {
+			return true
+		}
+	}
+	return false
 }
 
 func pathWithin(path, root string) bool {
@@ -235,7 +257,7 @@ func (p Policy) requireCleanWorktreeState(repo string) (repoState, error) {
 		return repoState{}, err
 	}
 	if len(entries) > 0 {
-		return repoState{}, refuse("repository must be clean before merging")
+		return repoState{}, refuse("repository must be clean before this operation")
 	}
 	return state, nil
 }
@@ -541,6 +563,53 @@ func anySecretPath(paths ...string) bool {
 	return false
 }
 
+func normaliseNewWorktreePath(raw string) (string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return "", refuse("worktree_path must be a non-empty string")
+	}
+	if strings.TrimSpace(raw) != raw || strings.ContainsRune(raw, '\x00') {
+		return "", refuse("worktree_path contains invalid characters")
+	}
+	abs, err := filepath.Abs(raw)
+	if err != nil {
+		return "", err
+	}
+	target := filepath.Clean(abs)
+	if _, err := os.Lstat(target); err == nil {
+		return "", refuse("worktree_path already exists")
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", err
+	}
+	parent := filepath.Dir(target)
+	info, err := os.Stat(parent)
+	if err != nil || !info.IsDir() {
+		return "", refuse("worktree_path parent does not exist or is not a directory")
+	}
+	resolvedParent, err := filepath.EvalSymlinks(parent)
+	if err != nil {
+		return "", err
+	}
+	target = filepath.Clean(filepath.Join(resolvedParent, filepath.Base(target)))
+	if hasSecretPathComponent(target) {
+		return "", refuse("worktree_path must not be inside a secret-bearing path")
+	}
+	return target, nil
+}
+
+func hasSecretPathComponent(path string) bool {
+	clean := filepath.ToSlash(filepath.Clean(path))
+	parts := strings.Split(clean, "/")
+	for index := range parts {
+		if parts[index] == "" {
+			continue
+		}
+		if secretcheck.IsSecretPath(strings.Join(parts[index:], "/")) {
+			return true
+		}
+	}
+	return false
+}
+
 func pathContainsSymlink(repo, rel string) (bool, error) {
 	current := repo
 	for _, part := range strings.Split(filepath.FromSlash(rel), string(filepath.Separator)) {
@@ -621,6 +690,97 @@ func (p Policy) requireLocalBranch(repo, branch, label string) (string, error) {
 	return head, nil
 }
 
+func (p Policy) requireBranchNotCheckedOutElsewhere(repo, branch string) error {
+	worktrees, err := p.worktrees(repo)
+	if err != nil {
+		return err
+	}
+	for _, worktree := range worktrees {
+		if worktree.Branch != nil && *worktree.Branch == branch && !samePath(worktree.Path, repo) {
+			return refuse("branch is already checked out in another worktree: " + branch)
+		}
+	}
+	return nil
+}
+
+func (p Policy) requireWorktreePathAvailable(repo, target string) error {
+	worktrees, err := p.worktrees(repo)
+	if err != nil {
+		return err
+	}
+	for _, worktree := range worktrees {
+		if samePath(worktree.Path, target) || pathWithin(target, worktree.Path) || pathWithin(worktree.Path, target) {
+			return refuse("worktree_path overlaps an existing worktree")
+		}
+	}
+	return nil
+}
+
+func (p Policy) worktrees(repo string) ([]rawWorktree, error) {
+	raw, err := p.Git.Run(repo, "worktree", "list", "--porcelain", "-z")
+	if err != nil {
+		return nil, err
+	}
+	records := splitNULKeepEmpty(raw.Stdout)
+	worktrees := make([]rawWorktree, 0)
+	var current *rawWorktree
+	flush := func() {
+		if current != nil && current.Path != "" {
+			current.Path = canonicalCleanPath(current.Path)
+			worktrees = append(worktrees, *current)
+		}
+		current = nil
+	}
+	for _, record := range records {
+		if record == "" {
+			flush()
+			continue
+		}
+		key, value, hasValue := strings.Cut(record, " ")
+		if key == "worktree" {
+			flush()
+			current = &rawWorktree{Path: filepath.Clean(value)}
+			continue
+		}
+		if current == nil {
+			continue
+		}
+		switch key {
+		case "HEAD":
+			current.Head = value
+		case "branch":
+			if hasValue && strings.HasPrefix(value, "refs/heads/") {
+				branch := strings.TrimPrefix(value, "refs/heads/")
+				current.Branch = &branch
+			}
+		case "bare":
+			current.IsBare = true
+		case "locked":
+			current.IsLocked = true
+		case "prunable":
+			current.IsPrunable = true
+		}
+	}
+	flush()
+	return worktrees, nil
+}
+
+func splitNULKeepEmpty(raw string) []string {
+	return strings.Split(raw, "\x00")
+}
+
+func samePath(left, right string) bool {
+	return canonicalCleanPath(left) == canonicalCleanPath(right)
+}
+
+func canonicalCleanPath(path string) string {
+	cleaned := filepath.Clean(path)
+	if resolved, err := filepath.EvalSymlinks(cleaned); err == nil {
+		return filepath.Clean(resolved)
+	}
+	return cleaned
+}
+
 func (p Policy) gitDir(repo string) (string, error) {
 	result, err := p.Git.Run(repo, "rev-parse", "--git-dir")
 	if err != nil {
@@ -669,6 +829,24 @@ func (p Policy) rejectLikelySecretMaterial(repo string, rels []string) error {
 		for _, line := range additions {
 			if secretcheck.ContainsLikelySecret(line) {
 				return refuse("requested diff appears to contain secret material: " + rel)
+			}
+		}
+	}
+	return nil
+}
+
+func (p Policy) rejectLikelySecretMaterialInStagedDiff(repo string, rels []string) error {
+	for _, rel := range rels {
+		diff, err := p.Git.Run(repo, "diff", "--cached", "--no-ext-diff", "--unified=0", "--", rel)
+		if err != nil {
+			return err
+		}
+		for _, line := range strings.Split(diff.Stdout, "\n") {
+			if !strings.HasPrefix(line, "+") || strings.HasPrefix(line, "+++") {
+				continue
+			}
+			if secretcheck.ContainsLikelySecret(strings.TrimPrefix(line, "+")) {
+				return refuse("requested staged diff appears to contain secret material: " + rel)
 			}
 		}
 	}

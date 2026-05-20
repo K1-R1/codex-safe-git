@@ -2,6 +2,7 @@ package gitpolicy_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -165,6 +166,62 @@ func TestSecretPathAndMaterialRefusals(t *testing.T) {
 	repo.Write("scanner.py", "LIKELY_SECRET = re.compile('placeholder')\n")
 	if _, err := repo.Policy.CommitFiles(repo.Path, []string{"scanner.py"}, "Add scanner source", nil); err != nil {
 		t.Fatalf("identifier-contained keyword should be allowed: %v", err)
+	}
+}
+
+func TestCommitFilesRescansStagedDiffBeforeCommit(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test uses a POSIX shell git wrapper")
+	}
+	repo := testrepo.New(t)
+	repo.Write("racy.txt", "safe\n")
+
+	runner, err := gitexec.NewRunner()
+	if err != nil {
+		t.Fatal(err)
+	}
+	wrapper := filepath.Join(repo.Root, "git")
+	realGit := strings.ReplaceAll(runner.GitPath, "'", "'\\''")
+	script := fmt.Sprintf(`#!/bin/sh
+repo=""
+saw_c=0
+is_add=0
+for arg in "$@"; do
+  if [ "$saw_c" = "1" ]; then
+    repo="$arg"
+    saw_c=0
+    continue
+  fi
+  if [ "$arg" = "-C" ]; then
+    saw_c=1
+    continue
+  fi
+  if [ "$arg" = "add" ]; then
+    is_add=1
+  fi
+done
+if [ "$is_add" = "1" ]; then
+  key_name="$(printf 'api_%%s' 'key')"
+  key_value="$(printf '%%s%%s' 'abcdefgh' 'ijklmnop')"
+  printf '%%s = %%s\n' "$key_name" "$key_value" > "$repo/racy.txt"
+fi
+exec '%s' "$@"
+`, realGit)
+	if err := os.WriteFile(wrapper, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	repo.Policy.Git = gitexec.Runner{GitPath: wrapper, Timeout: gitexec.DefaultTimeout}
+
+	before := strings.TrimSpace(repo.Run("rev-parse", "HEAD"))
+	if _, err := repo.Policy.CommitFiles(repo.Path, []string{"racy.txt"}, "Add racy file", nil); !hasReason(err, "staged diff appears to contain secret material") {
+		t.Fatalf("expected staged secret refusal, got %v", err)
+	}
+	after := strings.TrimSpace(repo.Run("rev-parse", "HEAD"))
+	if before != after {
+		t.Fatalf("commit happened despite staged secret refusal: before %s after %s", before, after)
+	}
+	if staged := repo.Run("diff", "--cached", "--name-only"); staged != "" {
+		t.Fatalf("staged file should have been cleared after refusal, got %q", staged)
 	}
 }
 
@@ -350,6 +407,192 @@ func TestLinkedWorktreeBranchAndMerge(t *testing.T) {
 	}
 }
 
+func TestCreateWorktreeListAndSafeCheckout(t *testing.T) {
+	repo := testrepo.New(t)
+	policy := rootAllowedPolicy(t, repo)
+	target := filepath.Join(repo.Root, "linked-feature")
+
+	created, err := policy.CreateWorktree(repo.Path, target, "codex/linked-feature", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.WorktreePath != canonicalPath(t, target) || created.Branch != "codex/linked-feature" || created.Action != "created" {
+		t.Fatalf("unexpected create worktree result: %#v", created)
+	}
+	if created.BaseBranch != nil || created.BaseHead == "" || created.HeadCommit != created.BaseHead {
+		t.Fatalf("unexpected base metadata: %#v", created)
+	}
+
+	listed, err := policy.ListWorktrees(repo.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if listed.RedactedUnallowlistedCount != 0 {
+		t.Fatalf("did not expect redacted worktrees: %#v", listed)
+	}
+	if !containsWorktree(listed.Worktrees, canonicalPath(t, repo.Path), true) {
+		t.Fatalf("missing current worktree: %#v", listed.Worktrees)
+	}
+	if !containsWorktree(listed.Worktrees, canonicalPath(t, target), false) {
+		t.Fatalf("missing linked worktree: %#v", listed.Worktrees)
+	}
+
+	repo.Run("branch", "codex/checkout-target")
+	checkout, err := policy.SafeCheckout(target, "codex/checkout-target")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if checkout.Action != "switched" || checkout.Branch != "codex/checkout-target" {
+		t.Fatalf("unexpected checkout result: %#v", checkout)
+	}
+}
+
+func TestListWorktreesRedactsUnallowlistedPaths(t *testing.T) {
+	repo := testrepo.New(t)
+	linked := filepath.Join(repo.Root, "linked-redacted")
+	repo.Run("worktree", "add", "-b", "codex/redacted", linked, "HEAD")
+
+	listed, err := repo.Policy.ListWorktrees(repo.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if listed.RedactedUnallowlistedCount != 1 {
+		t.Fatalf("expected one redacted worktree, got %#v", listed)
+	}
+	for _, worktree := range listed.Worktrees {
+		if samePathForTest(t, worktree.Path, linked) {
+			t.Fatalf("unallowlisted worktree path leaked: %#v", listed.Worktrees)
+		}
+	}
+}
+
+func TestWorktreeToolsRefuseUnsafeInputsAndStates(t *testing.T) {
+	repo := testrepo.New(t)
+	policy := rootAllowedPolicy(t, repo)
+
+	repo.Write("dirty.txt", "dirty\n")
+	if _, err := policy.CreateWorktree(repo.Path, filepath.Join(repo.Root, "dirty-target"), "codex/dirty", nil); !hasReason(err, "must be clean") {
+		t.Fatalf("expected dirty refusal, got %v", err)
+	}
+	if err := os.Remove(repo.Abs("dirty.txt")); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := policy.CreateWorktree(repo.Path, filepath.Join(t.TempDir(), "outside"), "codex/outside", nil); !hasReason(err, "not explicitly allowlisted") {
+		t.Fatalf("expected outside target refusal, got %v", err)
+	}
+	existing := filepath.Join(repo.Root, "existing")
+	if err := os.Mkdir(existing, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := policy.CreateWorktree(repo.Path, existing, "codex/existing", nil); !hasReason(err, "already exists") {
+		t.Fatalf("expected existing target refusal, got %v", err)
+	}
+	if _, err := policy.CreateWorktree(repo.Path, filepath.Join(repo.Root, "main-target"), "main", nil); !hasReason(err, "protected branch: main") {
+		t.Fatalf("expected protected branch refusal, got %v", err)
+	}
+	if err := os.Mkdir(filepath.Join(repo.Root, ".ssh"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := policy.CreateWorktree(repo.Path, filepath.Join(repo.Root, ".ssh", "secret-target"), "codex/secret-path", nil); !hasReason(err, "secret-bearing path") {
+		t.Fatalf("expected secret-bearing target refusal, got %v", err)
+	}
+	repo.Run("branch", "codex/already-exists")
+	if _, err := policy.CreateWorktree(repo.Path, filepath.Join(repo.Root, "duplicate-branch"), "codex/already-exists", nil); !hasReason(err, "branch already exists") {
+		t.Fatalf("expected duplicate branch refusal, got %v", err)
+	}
+}
+
+func TestSafeCheckoutRefusals(t *testing.T) {
+	repo := testrepo.New(t)
+	policy := rootAllowedPolicy(t, repo)
+	repo.Run("branch", "codex/feature")
+	if _, err := policy.SafeCheckout(repo.Path, "main"); !hasReason(err, "protected branch: main") {
+		t.Fatalf("expected protected branch refusal, got %v", err)
+	}
+	if _, err := policy.SafeCheckout(repo.Path, "codex/missing"); !hasReason(err, "does not exist") {
+		t.Fatalf("expected missing branch refusal, got %v", err)
+	}
+
+	linked := filepath.Join(repo.Root, "checkout-linked")
+	repo.Run("worktree", "add", "-b", "codex/checked-out-elsewhere", linked, "HEAD")
+	if _, err := policy.SafeCheckout(repo.Path, "codex/checked-out-elsewhere"); !hasReason(err, "already checked out") {
+		t.Fatalf("expected checked-out-elsewhere refusal, got %v", err)
+	}
+
+	if _, err := policy.SafeCheckout(repo.Path, "codex/feature"); err != nil {
+		t.Fatal(err)
+	}
+	repo.Write("dirty.txt", "dirty\n")
+	if _, err := policy.SafeCheckout(repo.Path, "work"); !hasReason(err, "must be clean") {
+		t.Fatalf("expected dirty checkout refusal, got %v", err)
+	}
+}
+
+func TestUnsafeGitExecutionConfigRefused(t *testing.T) {
+	repo := testrepo.New(t)
+	repo.Run("config", "filter.bad.clean", "cat")
+	if _, err := repo.Policy.GitStatus(repo.Path); !hasReason(err, "execution-capable Git config") {
+		t.Fatalf("expected execution config refusal, got %v", err)
+	}
+}
+
+func TestWorktreeMutationsFailClosedWhenAuditLogUnavailable(t *testing.T) {
+	repo := testrepo.New(t)
+	policy := rootAllowedPolicy(t, repo)
+	policy.Audit.Path = repo.Root
+	target := filepath.Join(repo.Root, "blocked-worktree")
+
+	if _, err := policy.CreateWorktree(repo.Path, target, "codex/blocked-worktree", nil); !hasReason(err, "audit log is not writable") {
+		t.Fatalf("expected audit refusal, got %v", err)
+	}
+	if _, err := os.Stat(target); !os.IsNotExist(err) {
+		t.Fatalf("worktree should not exist after audit refusal: %v", err)
+	}
+	if head := strings.TrimSpace(repo.Run("symbolic-ref", "--short", "HEAD")); head != "work" {
+		t.Fatalf("branch changed despite audit refusal: %s", head)
+	}
+
+	repo.Run("branch", "codex/no-audit-checkout")
+	if _, err := policy.SafeCheckout(repo.Path, "codex/no-audit-checkout"); !hasReason(err, "audit log is not writable") {
+		t.Fatalf("expected checkout audit refusal, got %v", err)
+	}
+	if head := strings.TrimSpace(repo.Run("symbolic-ref", "--short", "HEAD")); head != "work" {
+		t.Fatalf("checkout happened despite audit refusal: %s", head)
+	}
+}
+
+func TestBranchAndMergeMutationsFailClosedWhenAuditLogUnavailable(t *testing.T) {
+	repo := testrepo.New(t)
+	policy := repo.Policy
+	policy.Audit.Path = repo.Root
+
+	if _, err := policy.CreateCommitBranch(repo.Path, "codex/no-audit-branch"); !hasReason(err, "audit log is not writable") {
+		t.Fatalf("expected branch audit refusal, got %v", err)
+	}
+	if head := strings.TrimSpace(repo.Run("symbolic-ref", "--short", "HEAD")); head != "work" {
+		t.Fatalf("branch changed despite audit refusal: %s", head)
+	}
+	if branch := strings.TrimSpace(repo.Run("branch", "--list", "codex/no-audit-branch")); branch != "" {
+		t.Fatalf("branch was created despite audit refusal: %q", branch)
+	}
+
+	repo.Run("switch", "-c", "codex/audit-source")
+	repo.Write("merge-audit.txt", "merge\n")
+	if _, err := repo.Policy.CommitFiles(repo.Path, []string{"merge-audit.txt"}, "Add merge audit source", nil); err != nil {
+		t.Fatal(err)
+	}
+	repo.Run("switch", "work")
+	before := strings.TrimSpace(repo.Run("rev-parse", "HEAD"))
+	if _, err := policy.MergeBranch(repo.Path, "codex/audit-source", nil); !hasReason(err, "audit log is not writable") {
+		t.Fatalf("expected merge audit refusal, got %v", err)
+	}
+	after := strings.TrimSpace(repo.Run("rev-parse", "HEAD"))
+	if before != after {
+		t.Fatalf("merge happened despite audit refusal: before %s after %s", before, after)
+	}
+}
+
 func TestAuditMetadataOnly(t *testing.T) {
 	repo := testrepo.New(t)
 	repo.Write("listed.txt", "listed\n")
@@ -404,4 +647,35 @@ func canonicalPath(t *testing.T, path string) string {
 		return filepath.Clean(resolved)
 	}
 	return filepath.Clean(abs)
+}
+
+func rootAllowedPolicy(t *testing.T, repo testrepo.Repo) gitpolicy.Policy {
+	t.Helper()
+	runner, err := gitexec.NewRunner()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return gitpolicy.Policy{
+		Config: config.Config{
+			AllowedRepos:     map[string]struct{}{},
+			AllowedRepoRoots: map[string]struct{}{canonicalPath(t, repo.Root): {}},
+			AuditLog:         repo.AuditLog,
+		},
+		Git:   runner,
+		Audit: audit.Logger{Path: repo.AuditLog},
+	}
+}
+
+func containsWorktree(entries []gitpolicy.WorktreeEntry, path string, current bool) bool {
+	for _, entry := range entries {
+		if entry.Path == path && entry.IsCurrent == current {
+			return true
+		}
+	}
+	return false
+}
+
+func samePathForTest(t *testing.T, left, right string) bool {
+	t.Helper()
+	return canonicalPath(t, left) == canonicalPath(t, right)
 }
