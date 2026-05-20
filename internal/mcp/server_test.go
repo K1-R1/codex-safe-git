@@ -55,6 +55,54 @@ func TestToolSurfaceMatchesGoldenNames(t *testing.T) {
 	}
 }
 
+func TestToolDefinitionsExposeAnnotationsAndOutputSchemas(t *testing.T) {
+	resp := mcp.Server{}.Handle([]byte(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
+	if resp == nil {
+		t.Fatal("expected response")
+	}
+
+	var raw struct {
+		Result struct {
+			Tools []struct {
+				Name         string         `json:"name"`
+				InputSchema  map[string]any `json:"inputSchema"`
+				Annotations  map[string]any `json:"annotations"`
+				OutputSchema map[string]any `json:"outputSchema"`
+			} `json:"tools"`
+		} `json:"result"`
+	}
+	marshalRoundTrip(t, resp, &raw)
+
+	seen := map[string]struct{}{}
+	for _, tool := range raw.Result.Tools {
+		seen[tool.Name] = struct{}{}
+		if tool.OutputSchema["type"] != "object" {
+			t.Fatalf("%s missing object outputSchema: %#v", tool.Name, tool.OutputSchema)
+		}
+		if tool.Annotations["openWorldHint"] != false || tool.Annotations["destructiveHint"] != false {
+			t.Fatalf("%s has unsafe annotations: %#v", tool.Name, tool.Annotations)
+		}
+		if tool.Name == "git_status" && tool.Annotations["readOnlyHint"] != true {
+			t.Fatalf("git_status should be read-only: %#v", tool.Annotations)
+		}
+		if tool.Name == "commit_files" {
+			if tool.Annotations["readOnlyHint"] != false {
+				t.Fatalf("commit_files should be mutating: %#v", tool.Annotations)
+			}
+			properties, _ := tool.InputSchema["properties"].(map[string]any)
+			files, _ := properties["files"].(map[string]any)
+			if int(files["maxItems"].(float64)) != gitpolicy.CommitFileLimit {
+				t.Fatalf("commit_files maxItems does not match policy limit: %#v", files)
+			}
+		}
+	}
+	for _, name := range []string{"git_status", "git_diff_summary", "commit_files", "list_worktrees"} {
+		if _, ok := seen[name]; !ok {
+			t.Fatalf("missing tool %s", name)
+		}
+	}
+}
+
 func TestToolCallReturnsStructuredContent(t *testing.T) {
 	repo := testrepo.New(t)
 	server := mcp.Server{Policy: &repo.Policy}
@@ -166,12 +214,12 @@ func TestToolResultSchemaCoversCurrentResultShapes(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, required := range [][]string{
-		{"result", "repo", "branch", "is_detached", "ambiguous_reasons", "has_staged_changes", "clean", "entries", "redacted_secret_path_count"},
+		{"result", "repo", "branch", "is_detached", "ambiguous_reasons", "has_staged_changes", "clean", "entries", "entry_count", "entries_truncated", "entry_limit", "redacted_secret_path_count"},
 		{"result", "repo", "unstaged", "staged", "untracked"},
 		{"result", "repo", "commit_hash", "files", "audit_summary"},
 		{"result", "repo", "branch", "action", "head_commit"},
 		{"result", "repo", "source_branch", "target_branch", "action", "source_head", "target_head_before", "target_head_after"},
-		{"result", "repo", "worktrees", "redacted_unallowlisted_count"},
+		{"result", "repo", "worktrees", "worktree_count", "worktrees_truncated", "worktree_limit", "redacted_unallowlisted_count"},
 		{"result", "repo", "worktree_path", "branch", "base_branch", "base_head", "head_commit", "action"},
 		{"result", "reason"},
 	} {

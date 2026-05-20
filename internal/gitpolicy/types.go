@@ -1,5 +1,13 @@
 package gitpolicy
 
+const (
+	StatusEntryLimit = 200
+	DiffFileLimit    = 200
+	UntrackedLimit   = 200
+	WorktreeLimit    = 100
+	CommitFileLimit  = 200
+)
+
 type Refusal struct {
 	Reason string
 }
@@ -23,6 +31,9 @@ type StatusResult struct {
 	HasStagedChanges        bool          `json:"has_staged_changes"`
 	Clean                   bool          `json:"clean"`
 	Entries                 []StatusEntry `json:"entries"`
+	EntryCount              int           `json:"entry_count"`
+	EntriesTruncated        bool          `json:"entries_truncated"`
+	EntryLimit              int           `json:"entry_limit"`
 	RedactedSecretPathCount int           `json:"redacted_secret_path_count"`
 }
 
@@ -34,11 +45,17 @@ type FileStat struct {
 
 type FileSummary struct {
 	Files                   []FileStat `json:"files"`
+	FileCount               int        `json:"file_count"`
+	FilesTruncated          bool       `json:"files_truncated"`
+	FileLimit               int        `json:"file_limit"`
 	RedactedSecretPathCount int        `json:"redacted_secret_path_count"`
 }
 
 type UntrackedSummary struct {
 	Files                   []string `json:"files"`
+	FileCount               int      `json:"file_count"`
+	FilesTruncated          bool     `json:"files_truncated"`
+	FileLimit               int      `json:"file_limit"`
 	RedactedSecretPathCount int      `json:"redacted_secret_path_count"`
 }
 
@@ -92,6 +109,9 @@ type ListWorktreesResult struct {
 	Result                     string          `json:"result"`
 	Repo                       string          `json:"repo"`
 	Worktrees                  []WorktreeEntry `json:"worktrees"`
+	WorktreeCount              int             `json:"worktree_count"`
+	WorktreesTruncated         bool            `json:"worktrees_truncated"`
+	WorktreeLimit              int             `json:"worktree_limit"`
 	RedactedUnallowlistedCount int             `json:"redacted_unallowlisted_count"`
 }
 

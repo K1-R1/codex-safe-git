@@ -252,6 +252,60 @@ func TestStatusAndDiffRedactRenameSecretSides(t *testing.T) {
 	}
 }
 
+func TestStatusAndDiffSummariesAreBoundedWithCounts(t *testing.T) {
+	repo := testrepo.New(t)
+	for index := 0; index < gitpolicy.StatusEntryLimit+5; index++ {
+		repo.Write(fmt.Sprintf("bulk-%03d.txt", index), "bulk\n")
+	}
+	repo.Write(".env", "PLACEHOLDER=value\n")
+
+	status, err := repo.Policy.GitStatus(repo.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.EntryCount != gitpolicy.StatusEntryLimit+5 || len(status.Entries) != gitpolicy.StatusEntryLimit || !status.EntriesTruncated {
+		t.Fatalf("expected bounded status entries, got count=%d len=%d truncated=%v", status.EntryCount, len(status.Entries), status.EntriesTruncated)
+	}
+	if status.EntryLimit != gitpolicy.StatusEntryLimit || status.RedactedSecretPathCount != 1 {
+		t.Fatalf("unexpected status limit/redaction metadata: %#v", status)
+	}
+
+	diff, err := repo.Policy.GitDiffSummary(repo.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diff.Untracked.FileCount != gitpolicy.UntrackedLimit+5 || len(diff.Untracked.Files) != gitpolicy.UntrackedLimit || !diff.Untracked.FilesTruncated {
+		t.Fatalf("expected bounded untracked files, got %#v", diff.Untracked)
+	}
+	if diff.Untracked.FileLimit != gitpolicy.UntrackedLimit || diff.Untracked.RedactedSecretPathCount != 1 {
+		t.Fatalf("unexpected untracked limit/redaction metadata: %#v", diff.Untracked)
+	}
+}
+
+func TestCommitFilesRefusesTooManyFiles(t *testing.T) {
+	repo := testrepo.New(t)
+	files := make([]string, gitpolicy.CommitFileLimit+1)
+	for index := range files {
+		files[index] = fmt.Sprintf("bulk-%03d.txt", index)
+	}
+	if _, err := repo.Policy.CommitFiles(repo.Path, files, "Too many files", nil); !hasReason(err, "too many requested files") {
+		t.Fatalf("expected file limit refusal, got %v", err)
+	}
+}
+
+func TestGlobalExecutionConfigIsIgnored(t *testing.T) {
+	repo := testrepo.New(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := os.WriteFile(filepath.Join(home, ".gitconfig"), []byte("[filter \"bad\"]\n\tclean = cat\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := repo.Policy.GitStatus(repo.Path); err != nil {
+		t.Fatalf("global Git config should be ignored, got %v", err)
+	}
+}
+
 func TestBadMessageDetachedAndStagedStateRefusals(t *testing.T) {
 	repo := testrepo.New(t)
 	repo.Write("readme.txt", "readme\n")

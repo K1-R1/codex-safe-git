@@ -121,7 +121,9 @@ func gitEnv() []string {
 	}
 	env = append(env,
 		"GIT_ASKPASS="+falsePath,
+		"GIT_CONFIG_GLOBAL="+os.DevNull,
 		"GIT_CONFIG_NOSYSTEM=1",
+		"GIT_CONFIG_SYSTEM="+os.DevNull,
 		"GIT_EDITOR=:",
 		"GIT_LITERAL_PATHSPECS=1",
 		"GIT_TERMINAL_PROMPT=0",

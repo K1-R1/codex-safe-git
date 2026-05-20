@@ -270,44 +270,44 @@ func result(id any, payload any) *response {
 
 func tools() []map[string]any {
 	return []map[string]any{
-		tool("git_status", "Git Status", "Return a redacted, read-only status summary for an explicitly allowed local Git repo.", []string{"repo_path"}, map[string]any{"repo_path": map[string]any{"type": "string"}}),
-		tool("git_diff_summary", "Git Diff Summary", "Return redacted file-level diff counts for an explicitly allowed local Git repo.", []string{"repo_path"}, map[string]any{"repo_path": map[string]any{"type": "string"}}),
+		tool("git_status", "Git Status", "Return a redacted, bounded, read-only status summary for an explicitly allowed local Git repo.", []string{"repo_path"}, map[string]any{"repo_path": stringInput("Exact Git worktree root to inspect.")}, readOnlyAnnotations("Git Status"), statusOutputSchema()),
+		tool("git_diff_summary", "Git Diff Summary", "Return redacted, bounded file-level diff counts for an explicitly allowed local Git repo.", []string{"repo_path"}, map[string]any{"repo_path": stringInput("Exact Git worktree root to inspect.")}, readOnlyAnnotations("Git Diff Summary"), diffSummaryOutputSchema()),
 		tool("commit_files", "Commit Files", "Create a local commit from exactly listed files after deterministic safety checks.", []string{"repo_path", "files", "message"}, map[string]any{
-			"repo_path": map[string]any{"type": "string"},
-			"files":     map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "minItems": 1},
-			"message":   map[string]any{"type": "string"},
-			"body":      map[string]any{"type": "string"},
-		}),
+			"repo_path": stringInput("Exact Git worktree root where the commit will be created."),
+			"files":     map[string]any{"type": "array", "items": stringInput("Repo-relative file path."), "minItems": 1, "maxItems": gitpolicy.CommitFileLimit, "uniqueItems": true},
+			"message":   stringInput("Commit subject without AI/tool attribution."),
+			"body":      map[string]any{"type": "string", "description": "Optional commit body without AI/tool attribution."},
+		}, mutatingAnnotations("Commit Files", false), commitOutputSchema()),
 		tool("ensure_commit_branch", "Ensure Commit Branch", "Attach a detached worktree to a safe local non-default branch at current HEAD.", []string{"repo_path", "branch_name"}, map[string]any{
-			"repo_path":   map[string]any{"type": "string"},
-			"branch_name": map[string]any{"type": "string"},
-		}),
+			"repo_path":   stringInput("Exact Git worktree root to prepare."),
+			"branch_name": stringInput("Safe local branch name to create or attach."),
+		}, mutatingAnnotations("Ensure Commit Branch", false), branchOutputSchema()),
 		tool("create_commit_branch", "Create Commit Branch", "Create or switch to a safe local non-default branch at current HEAD.", []string{"repo_path", "branch_name"}, map[string]any{
-			"repo_path":   map[string]any{"type": "string"},
-			"branch_name": map[string]any{"type": "string"},
-		}),
+			"repo_path":   stringInput("Exact Git worktree root to prepare."),
+			"branch_name": stringInput("Safe local branch name to create or switch to."),
+		}, mutatingAnnotations("Create Commit Branch", false), branchOutputSchema()),
 		tool("merge_branch", "Merge Branch", "Fast-forward a clean non-default local target branch from another local branch.", []string{"repo_path", "source_branch"}, map[string]any{
-			"repo_path":     map[string]any{"type": "string"},
-			"source_branch": map[string]any{"type": "string"},
-			"target_branch": map[string]any{"type": "string"},
-		}),
+			"repo_path":     stringInput("Exact Git worktree root currently on the target branch."),
+			"source_branch": stringInput("Existing safe local branch to fast-forward from."),
+			"target_branch": stringInput("Optional current target branch guard."),
+		}, mutatingAnnotations("Merge Branch", false), mergeOutputSchema()),
 		tool("list_worktrees", "List Worktrees", "Return local worktrees visible under the configured allowlist, redacting unallowlisted paths.", []string{"repo_path"}, map[string]any{
-			"repo_path": map[string]any{"type": "string"},
-		}),
+			"repo_path": stringInput("Exact Git worktree root whose linked worktrees should be listed."),
+		}, readOnlyAnnotations("List Worktrees"), listWorktreesOutputSchema()),
 		tool("create_worktree", "Create Worktree", "Create a linked local worktree on a new safe non-protected branch under an allowed root.", []string{"repo_path", "worktree_path", "branch_name"}, map[string]any{
-			"repo_path":     map[string]any{"type": "string"},
-			"worktree_path": map[string]any{"type": "string"},
-			"branch_name":   map[string]any{"type": "string"},
-			"base_branch":   map[string]any{"type": "string"},
-		}),
+			"repo_path":     stringInput("Exact source Git worktree root."),
+			"worktree_path": stringInput("New allowed path for the linked worktree."),
+			"branch_name":   stringInput("New safe local branch for the linked worktree."),
+			"base_branch":   stringInput("Optional existing safe local branch to base from."),
+		}, mutatingAnnotations("Create Worktree", false), createWorktreeOutputSchema()),
 		tool("safe_checkout", "Safe Checkout", "Switch a clean worktree to an existing safe non-protected local branch.", []string{"repo_path", "branch_name"}, map[string]any{
-			"repo_path":   map[string]any{"type": "string"},
-			"branch_name": map[string]any{"type": "string"},
-		}),
+			"repo_path":   stringInput("Exact Git worktree root to switch."),
+			"branch_name": stringInput("Existing safe local branch to switch to."),
+		}, mutatingAnnotations("Safe Checkout", false), branchOutputSchema()),
 	}
 }
 
-func tool(name, title, description string, required []string, properties map[string]any) map[string]any {
+func tool(name, title, description string, required []string, properties map[string]any, annotations map[string]any, outputSchema map[string]any) map[string]any {
 	return map[string]any{
 		"name":        name,
 		"title":       title,
@@ -318,5 +318,203 @@ func tool(name, title, description string, required []string, properties map[str
 			"required":             required,
 			"additionalProperties": false,
 		},
+		"annotations":  annotations,
+		"outputSchema": outputSchema,
 	}
+}
+
+func stringInput(description string) map[string]any {
+	return map[string]any{"type": "string", "minLength": 1, "description": description}
+}
+
+func readOnlyAnnotations(title string) map[string]any {
+	return map[string]any{"title": title, "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": false}
+}
+
+func mutatingAnnotations(title string, idempotent bool) map[string]any {
+	return map[string]any{"title": title, "readOnlyHint": false, "destructiveHint": false, "idempotentHint": idempotent, "openWorldHint": false}
+}
+
+func statusOutputSchema() map[string]any {
+	return objectSchema(
+		[]string{"result", "repo", "branch", "is_detached", "ambiguous_reasons", "has_staged_changes", "clean", "entries", "entry_count", "entries_truncated", "entry_limit", "redacted_secret_path_count"},
+		map[string]any{
+			"result":                     map[string]any{"const": "ok"},
+			"repo":                       stringSchema(),
+			"branch":                     nullableStringSchema(),
+			"is_detached":                boolSchema(),
+			"ambiguous_reasons":          arraySchema(stringSchema()),
+			"has_staged_changes":         boolSchema(),
+			"clean":                      boolSchema(),
+			"entries":                    arraySchema(statusEntrySchema()),
+			"entry_count":                intSchema(),
+			"entries_truncated":          boolSchema(),
+			"entry_limit":                intSchema(),
+			"redacted_secret_path_count": intSchema(),
+		},
+	)
+}
+
+func diffSummaryOutputSchema() map[string]any {
+	return objectSchema(
+		[]string{"result", "repo", "unstaged", "staged", "untracked"},
+		map[string]any{
+			"result":    map[string]any{"const": "ok"},
+			"repo":      stringSchema(),
+			"unstaged":  fileSummarySchema(),
+			"staged":    fileSummarySchema(),
+			"untracked": untrackedSummarySchema(),
+		},
+	)
+}
+
+func commitOutputSchema() map[string]any {
+	return objectSchema(
+		[]string{"result", "repo", "commit_hash", "files", "audit_summary"},
+		map[string]any{
+			"result":        map[string]any{"const": "committed"},
+			"repo":          stringSchema(),
+			"commit_hash":   stringSchema(),
+			"files":         arraySchema(stringSchema()),
+			"audit_summary": stringSchema(),
+		},
+	)
+}
+
+func branchOutputSchema() map[string]any {
+	return objectSchema(
+		[]string{"result", "repo", "branch", "action", "head_commit"},
+		map[string]any{
+			"result":      map[string]any{"const": "ok"},
+			"repo":        stringSchema(),
+			"branch":      stringSchema(),
+			"action":      stringSchema(),
+			"head_commit": stringSchema(),
+		},
+	)
+}
+
+func mergeOutputSchema() map[string]any {
+	return objectSchema(
+		[]string{"result", "repo", "source_branch", "target_branch", "action", "source_head", "target_head_before", "target_head_after"},
+		map[string]any{
+			"result":             map[string]any{"const": "ok"},
+			"repo":               stringSchema(),
+			"source_branch":      stringSchema(),
+			"target_branch":      stringSchema(),
+			"action":             stringSchema(),
+			"source_head":        stringSchema(),
+			"target_head_before": stringSchema(),
+			"target_head_after":  stringSchema(),
+		},
+	)
+}
+
+func listWorktreesOutputSchema() map[string]any {
+	return objectSchema(
+		[]string{"result", "repo", "worktrees", "worktree_count", "worktrees_truncated", "worktree_limit", "redacted_unallowlisted_count"},
+		map[string]any{
+			"result":                       map[string]any{"const": "ok"},
+			"repo":                         stringSchema(),
+			"worktrees":                    arraySchema(worktreeEntrySchema()),
+			"worktree_count":               intSchema(),
+			"worktrees_truncated":          boolSchema(),
+			"worktree_limit":               intSchema(),
+			"redacted_unallowlisted_count": intSchema(),
+		},
+	)
+}
+
+func createWorktreeOutputSchema() map[string]any {
+	return objectSchema(
+		[]string{"result", "repo", "worktree_path", "branch", "base_branch", "base_head", "head_commit", "action"},
+		map[string]any{
+			"result":        map[string]any{"const": "ok"},
+			"repo":          stringSchema(),
+			"worktree_path": stringSchema(),
+			"branch":        stringSchema(),
+			"base_branch":   nullableStringSchema(),
+			"base_head":     stringSchema(),
+			"head_commit":   stringSchema(),
+			"action":        stringSchema(),
+		},
+	)
+}
+
+func objectSchema(required []string, properties map[string]any) map[string]any {
+	return map[string]any{"type": "object", "required": required, "properties": properties, "additionalProperties": false}
+}
+
+func statusEntrySchema() map[string]any {
+	return objectSchema([]string{"code", "path"}, map[string]any{"code": stringSchema(), "path": stringSchema()})
+}
+
+func fileSummarySchema() map[string]any {
+	return objectSchema(
+		[]string{"files", "file_count", "files_truncated", "file_limit", "redacted_secret_path_count"},
+		map[string]any{
+			"files":                      arraySchema(fileStatSchema()),
+			"file_count":                 intSchema(),
+			"files_truncated":            boolSchema(),
+			"file_limit":                 intSchema(),
+			"redacted_secret_path_count": intSchema(),
+		},
+	)
+}
+
+func fileStatSchema() map[string]any {
+	return objectSchema([]string{"path", "additions", "deletions"}, map[string]any{"path": stringSchema(), "additions": nullableIntSchema(), "deletions": nullableIntSchema()})
+}
+
+func untrackedSummarySchema() map[string]any {
+	return objectSchema(
+		[]string{"files", "file_count", "files_truncated", "file_limit", "redacted_secret_path_count"},
+		map[string]any{
+			"files":                      arraySchema(stringSchema()),
+			"file_count":                 intSchema(),
+			"files_truncated":            boolSchema(),
+			"file_limit":                 intSchema(),
+			"redacted_secret_path_count": intSchema(),
+		},
+	)
+}
+
+func worktreeEntrySchema() map[string]any {
+	return objectSchema(
+		[]string{"path", "head", "branch", "is_current", "is_detached", "is_bare", "is_locked", "is_prunable"},
+		map[string]any{
+			"path":        stringSchema(),
+			"head":        stringSchema(),
+			"branch":      nullableStringSchema(),
+			"is_current":  boolSchema(),
+			"is_detached": boolSchema(),
+			"is_bare":     boolSchema(),
+			"is_locked":   boolSchema(),
+			"is_prunable": boolSchema(),
+		},
+	)
+}
+
+func arraySchema(items map[string]any) map[string]any {
+	return map[string]any{"type": "array", "items": items}
+}
+
+func stringSchema() map[string]any {
+	return map[string]any{"type": "string"}
+}
+
+func nullableStringSchema() map[string]any {
+	return map[string]any{"type": []string{"string", "null"}}
+}
+
+func intSchema() map[string]any {
+	return map[string]any{"type": "integer", "minimum": 0}
+}
+
+func nullableIntSchema() map[string]any {
+	return map[string]any{"type": []string{"integer", "null"}, "minimum": 0}
+}
+
+func boolSchema() map[string]any {
+	return map[string]any{"type": "boolean"}
 }

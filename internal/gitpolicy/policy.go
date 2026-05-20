@@ -313,16 +313,26 @@ func (p Policy) ListWorktrees(repoPath string) (ListWorktreesResult, error) {
 		})
 	}
 	sort.Slice(visible, func(i, j int) bool { return visible[i].Path < visible[j].Path })
+	worktreeCount := len(visible)
+	visible, truncated := limitedSlice(visible, WorktreeLimit)
 	if err := p.auditSuccess(audit.Entry{
 		Action:                     "list_worktrees",
 		Result:                     "ok",
 		Repo:                       repo,
-		FileCount:                  audit.IntPtr(len(visible)),
+		FileCount:                  audit.IntPtr(worktreeCount),
 		RedactedUnallowlistedCount: audit.IntPtr(redacted),
 	}); err != nil {
 		return ListWorktreesResult{}, err
 	}
-	return ListWorktreesResult{Result: "ok", Repo: repo, Worktrees: visible, RedactedUnallowlistedCount: redacted}, nil
+	return ListWorktreesResult{
+		Result:                     "ok",
+		Repo:                       repo,
+		Worktrees:                  visible,
+		WorktreeCount:              worktreeCount,
+		WorktreesTruncated:         truncated,
+		WorktreeLimit:              WorktreeLimit,
+		RedactedUnallowlistedCount: redacted,
+	}, nil
 }
 
 func (p Policy) CreateWorktree(repoPath, worktreePath, branchName string, baseBranch *string) (CreateWorktreeResult, error) {

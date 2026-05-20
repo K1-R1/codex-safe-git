@@ -5,7 +5,7 @@
   "oneOf": [
     {
       "type": "object",
-      "required": ["result", "repo", "branch", "is_detached", "ambiguous_reasons", "has_staged_changes", "clean", "entries", "redacted_secret_path_count"],
+      "required": ["result", "repo", "branch", "is_detached", "ambiguous_reasons", "has_staged_changes", "clean", "entries", "entry_count", "entries_truncated", "entry_limit", "redacted_secret_path_count"],
       "properties": {
         "result": { "const": "ok" },
         "repo": { "type": "string" },
@@ -26,6 +26,9 @@
             "additionalProperties": false
           }
         },
+        "entry_count": { "type": "integer", "minimum": 0 },
+        "entries_truncated": { "type": "boolean" },
+        "entry_limit": { "type": "integer", "minimum": 0 },
         "redacted_secret_path_count": { "type": "integer", "minimum": 0 }
       },
       "additionalProperties": false
@@ -83,7 +86,7 @@
     },
     {
       "type": "object",
-      "required": ["result", "repo", "worktrees", "redacted_unallowlisted_count"],
+      "required": ["result", "repo", "worktrees", "worktree_count", "worktrees_truncated", "worktree_limit", "redacted_unallowlisted_count"],
       "properties": {
         "result": { "const": "ok" },
         "repo": { "type": "string" },
@@ -91,6 +94,9 @@
           "type": "array",
           "items": { "$ref": "#/$defs/worktree_entry" }
         },
+        "worktree_count": { "type": "integer", "minimum": 0 },
+        "worktrees_truncated": { "type": "boolean" },
+        "worktree_limit": { "type": "integer", "minimum": 0 },
         "redacted_unallowlisted_count": { "type": "integer", "minimum": 0 }
       },
       "additionalProperties": false
@@ -123,7 +129,7 @@
   "$defs": {
     "file_summary": {
       "type": "object",
-      "required": ["files", "redacted_secret_path_count"],
+      "required": ["files", "file_count", "files_truncated", "file_limit", "redacted_secret_path_count"],
       "properties": {
         "files": {
           "type": "array",
@@ -138,15 +144,21 @@
             "additionalProperties": false
           }
         },
+        "file_count": { "type": "integer", "minimum": 0 },
+        "files_truncated": { "type": "boolean" },
+        "file_limit": { "type": "integer", "minimum": 0 },
         "redacted_secret_path_count": { "type": "integer", "minimum": 0 }
       },
       "additionalProperties": false
     },
     "untracked_summary": {
       "type": "object",
-      "required": ["files", "redacted_secret_path_count"],
+      "required": ["files", "file_count", "files_truncated", "file_limit", "redacted_secret_path_count"],
       "properties": {
         "files": { "type": "array", "items": { "type": "string" } },
+        "file_count": { "type": "integer", "minimum": 0 },
+        "files_truncated": { "type": "boolean" },
+        "file_limit": { "type": "integer", "minimum": 0 },
         "redacted_secret_path_count": { "type": "integer", "minimum": 0 }
       },
       "additionalProperties": false

@@ -41,6 +41,14 @@ states, dirty worktrees, remotes, refs, hashes, and unsafe branch syntax.
 Structured tool result shapes are snapshotted in
 [`schemas/tool-results.schema.json`](schemas/tool-results.schema.json).
 
+Tools also expose MCP `annotations` and concise per-tool `outputSchema` definitions in
+`tools/list`, so clients can distinguish read-only inspection from local Git mutations and validate
+`structuredContent` without reading this repository's docs.
+
+Status, diff, untracked, and worktree arrays are bounded. Result payloads include the full visible
+count, limit, and truncation flag next to each bounded array. Secret-bearing paths and unallowlisted
+worktrees are counted separately and still redacted before truncation.
+
 All refusals return:
 
 ```json
@@ -66,8 +74,11 @@ Refusals also set `isError: true`.
   keychain material, shell profiles, or environment dumps.
 - Mutating operations require a writable audit log before Git state is changed.
 - Requested commit file paths are literal and must not resolve through symlinks.
+- Commit requests are bounded to 200 explicit files.
 - `commit_files` scans likely secret material before staging and rescans the staged diff before
   committing.
 - Worktree paths returned by `list_worktrees` must not disclose unallowlisted local paths.
+- Git subprocesses ignore system and global Git config, while still reading repository-local config
+  needed for the current worktree.
 - New tools require an explicit product decision. The default stance remains to keep the surface
   closed.

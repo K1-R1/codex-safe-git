@@ -220,6 +220,14 @@ func (p Policy) status(repo string) (StatusResult, error) {
 		}
 		visible = append(visible, entry)
 	}
+	sort.SliceStable(visible, func(i, j int) bool {
+		if visible[i].Path != visible[j].Path {
+			return visible[i].Path < visible[j].Path
+		}
+		return visible[i].Code < visible[j].Code
+	})
+	entryCount := len(visible)
+	visible, truncated := limitedSlice(visible, StatusEntryLimit)
 	return StatusResult{
 		Result:                  "ok",
 		Repo:                    repo,
@@ -227,8 +235,11 @@ func (p Policy) status(repo string) (StatusResult, error) {
 		IsDetached:              state.Branch == nil,
 		AmbiguousReasons:        state.AmbiguousReasons,
 		HasStagedChanges:        state.HasStagedChanges,
-		Clean:                   len(visible) == 0 && redacted == 0,
+		Clean:                   entryCount == 0 && redacted == 0,
 		Entries:                 visible,
+		EntryCount:              entryCount,
+		EntriesTruncated:        truncated,
+		EntryLimit:              StatusEntryLimit,
 		RedactedSecretPathCount: redacted,
 	}, nil
 }
@@ -329,6 +340,9 @@ func (p Policy) protectedBranches(repo string) (map[string]struct{}, error) {
 func (p Policy) normaliseFiles(repo string, files []string) ([]string, error) {
 	if len(files) == 0 {
 		return nil, refuse("at least one file must be listed")
+	}
+	if len(files) > CommitFileLimit {
+		return nil, refuse(fmt.Sprintf("too many requested files: limit is %d", CommitFileLimit))
 	}
 	repo = filepath.Clean(repo)
 	seen := map[string]struct{}{}
@@ -468,7 +482,9 @@ func (p Policy) safeUntracked(repo string) (UntrackedSummary, error) {
 		}
 	}
 	sort.Strings(files)
-	return UntrackedSummary{Files: files, RedactedSecretPathCount: redacted}, nil
+	fileCount := len(files)
+	files, truncated := limitedSlice(files, UntrackedLimit)
+	return UntrackedSummary{Files: files, FileCount: fileCount, FilesTruncated: truncated, FileLimit: UntrackedLimit, RedactedSecretPathCount: redacted}, nil
 }
 
 func (p Policy) numstat(repo string, args []string) (FileSummary, error) {
@@ -507,7 +523,10 @@ func (p Policy) numstat(repo string, args []string) (FileSummary, error) {
 			Deletions: parseNumstatInt(fields[1]),
 		})
 	}
-	return FileSummary{Files: files, RedactedSecretPathCount: redacted}, nil
+	sort.SliceStable(files, func(i, j int) bool { return files[i].Path < files[j].Path })
+	fileCount := len(files)
+	files, truncated := limitedSlice(files, DiffFileLimit)
+	return FileSummary{Files: files, FileCount: fileCount, FilesTruncated: truncated, FileLimit: DiffFileLimit, RedactedSecretPathCount: redacted}, nil
 }
 
 func parseNumstatInt(value string) *int {
@@ -882,6 +901,13 @@ func sameStringSet(left, right []string) bool {
 		}
 	}
 	return true
+}
+
+func limitedSlice[T any](items []T, limit int) ([]T, bool) {
+	if len(items) <= limit {
+		return items, false
+	}
+	return append([]T(nil), items[:limit]...), true
 }
 
 func branchOrInput(branch, input string) string {
