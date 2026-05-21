@@ -42,6 +42,26 @@ non-goal because audit movement should remain operator-owned and visible.
 
 ## Remaining Work
 
+### Candidate Private/Team Enhancements
+
+These are the next features worth considering because they are local, bounded, mostly read-only, and
+can be made compatible with the existing fail-closed safety model:
+
+- `list_local_branches`: list local branches with current/protected/checked-out status and HEAD
+  hashes.
+- `compare_refs`: summarise merge base, ahead/behind counts, and changed-file counts for two local
+  refs without returning patch text.
+- `commit_log_summary`: return recent bounded commit metadata for a local branch, such as hash,
+  subject, author date, and changed-file count.
+- `show_commit_summary`: return bounded metadata and changed-file names for one local commit without
+  returning patch text.
+- `list_local_refs`: list bounded local refs with type, target hash, and protected/visible status.
+- `merge_base`: report the merge base for two local refs.
+- `changed_files_between_refs`: return bounded, redacted changed-file names and counts between two
+  local refs.
+- `self_check`: report the MCP version, tool surface, binary/checksum status, audit-log writability,
+  and redacted/hashed allowlist configuration.
+
 Only full open-source preparation remains deferred until explicitly approved. That future work would
 include public release policy, public documentation polish, public support expectations, public
 licensing/release review, public security disclosure process, and any public distribution signing
