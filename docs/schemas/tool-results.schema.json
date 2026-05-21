@@ -47,6 +47,187 @@
     },
     {
       "type": "object",
+      "required": ["result", "repo", "branches", "branch_count", "branches_truncated", "branch_limit"],
+      "properties": {
+        "result": { "const": "ok" },
+        "repo": { "type": "string" },
+        "branches": { "type": "array", "items": { "$ref": "#/$defs/local_branch_entry" } },
+        "branch_count": { "type": "integer", "minimum": 0 },
+        "branches_truncated": { "type": "boolean" },
+        "branch_limit": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["result", "repo", "base_ref", "target_ref", "base_commit", "target_commit", "merge_base", "ahead_count", "behind_count", "changed_file_count", "redacted_secret_path_count"],
+      "properties": {
+        "result": { "const": "ok" },
+        "repo": { "type": "string" },
+        "base_ref": { "type": "string" },
+        "target_ref": { "type": "string" },
+        "base_commit": { "type": "string" },
+        "target_commit": { "type": "string" },
+        "merge_base": { "type": "string" },
+        "ahead_count": { "type": "integer", "minimum": 0 },
+        "behind_count": { "type": "integer", "minimum": 0 },
+        "changed_file_count": { "type": "integer", "minimum": 0 },
+        "redacted_secret_path_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["result", "repo", "ref", "resolved_commit", "commits", "commit_count", "commits_truncated", "commit_limit"],
+      "properties": {
+        "result": { "const": "ok" },
+        "repo": { "type": "string" },
+        "ref": { "type": "string" },
+        "resolved_commit": { "type": "string" },
+        "commits": { "type": "array", "items": { "$ref": "#/$defs/commit_summary_entry" } },
+        "commit_count": { "type": "integer", "minimum": 0 },
+        "commits_truncated": { "type": "boolean" },
+        "commit_limit": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["result", "repo", "commit_ref", "commit"],
+      "properties": {
+        "result": { "const": "ok" },
+        "repo": { "type": "string" },
+        "commit_ref": { "type": "string" },
+        "commit": { "$ref": "#/$defs/commit_summary_entry" }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["result", "repo", "refs", "ref_count", "refs_truncated", "ref_limit"],
+      "properties": {
+        "result": { "const": "ok" },
+        "repo": { "type": "string" },
+        "refs": { "type": "array", "items": { "$ref": "#/$defs/local_ref_entry" } },
+        "ref_count": { "type": "integer", "minimum": 0 },
+        "refs_truncated": { "type": "boolean" },
+        "ref_limit": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["result", "repo", "left_ref", "right_ref", "left_commit", "right_commit", "merge_base", "is_ancestor"],
+      "properties": {
+        "result": { "const": "ok" },
+        "repo": { "type": "string" },
+        "left_ref": { "type": "string" },
+        "right_ref": { "type": "string" },
+        "left_commit": { "type": "string" },
+        "right_commit": { "type": "string" },
+        "merge_base": { "type": "string" },
+        "is_ancestor": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["result", "repo", "base_ref", "target_ref", "base_commit", "target_commit", "changed"],
+      "properties": {
+        "result": { "const": "ok" },
+        "repo": { "type": "string" },
+        "base_ref": { "type": "string" },
+        "target_ref": { "type": "string" },
+        "base_commit": { "type": "string" },
+        "target_commit": { "type": "string" },
+        "changed": { "$ref": "#/$defs/path_list_summary" }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["result", "repo", "entries", "entry_count", "entries_truncated", "entry_limit", "redacted_secret_path_count"],
+      "properties": {
+        "result": { "const": "ok" },
+        "repo": { "type": "string" },
+        "entries": { "type": "array", "items": { "$ref": "#/$defs/path_status_entry" } },
+        "entry_count": { "type": "integer", "minimum": 0 },
+        "entries_truncated": { "type": "boolean" },
+        "entry_limit": { "type": "integer", "minimum": 0 },
+        "redacted_secret_path_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["result", "repo", "submodules", "submodule_count", "submodules_truncated", "submodule_limit", "redacted_secret_path_count"],
+      "properties": {
+        "result": { "const": "ok" },
+        "repo": { "type": "string" },
+        "submodules": { "type": "array", "items": { "$ref": "#/$defs/submodule_entry" } },
+        "submodule_count": { "type": "integer", "minimum": 0 },
+        "submodules_truncated": { "type": "boolean" },
+        "submodule_limit": { "type": "integer", "minimum": 0 },
+        "redacted_secret_path_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["result", "repo", "integrity_ok", "exit_code", "issues", "issue_count", "issues_truncated", "issue_limit"],
+      "properties": {
+        "result": { "const": "ok" },
+        "repo": { "type": "string" },
+        "integrity_ok": { "type": "boolean" },
+        "exit_code": { "type": "integer" },
+        "issues": { "type": "array", "items": { "$ref": "#/$defs/integrity_issue_count" } },
+        "issue_count": { "type": "integer", "minimum": 0 },
+        "issues_truncated": { "type": "boolean" },
+        "issue_limit": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["result", "repo", "ref", "entries", "entry_count", "entries_truncated", "entry_limit", "redacted_sensitive_summary_count"],
+      "properties": {
+        "result": { "const": "ok" },
+        "repo": { "type": "string" },
+        "ref": { "type": "string" },
+        "entries": { "type": "array", "items": { "$ref": "#/$defs/reflog_entry" } },
+        "entry_count": { "type": "integer", "minimum": 0 },
+        "entries_truncated": { "type": "boolean" },
+        "entry_limit": { "type": "integer", "minimum": 0 },
+        "redacted_sensitive_summary_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["result", "repo", "server_version", "protocol_version", "git_version", "tool_names", "tool_count", "binary_path_hash", "binary_checksum", "checksum_status", "audit_log_configured", "audit_log_writable", "allowed_repo_count", "allowed_repo_root_count", "allowlist_fingerprints", "protected_branch_count", "redacted_config_path_count"],
+      "properties": {
+        "result": { "const": "ok" },
+        "repo": { "type": "string" },
+        "server_version": { "type": "string" },
+        "protocol_version": { "type": "string" },
+        "git_version": { "type": "string" },
+        "tool_names": { "type": "array", "items": { "type": "string" } },
+        "tool_count": { "type": "integer", "minimum": 0 },
+        "binary_path_hash": { "type": "string" },
+        "binary_checksum": { "type": "string" },
+        "checksum_status": { "type": "string" },
+        "audit_log_configured": { "type": "boolean" },
+        "audit_log_writable": { "type": "boolean" },
+        "allowed_repo_count": { "type": "integer", "minimum": 0 },
+        "allowed_repo_root_count": { "type": "integer", "minimum": 0 },
+        "allowlist_fingerprints": { "type": "array", "items": { "type": "string" } },
+        "protected_branch_count": { "type": "integer", "minimum": 0 },
+        "redacted_config_path_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
       "required": ["result", "repo", "commit_hash", "files", "audit_summary"],
       "properties": {
         "result": { "const": "committed" },
@@ -160,6 +341,132 @@
         "files_truncated": { "type": "boolean" },
         "file_limit": { "type": "integer", "minimum": 0 },
         "redacted_secret_path_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "local_branch_entry": {
+      "type": "object",
+      "required": ["name", "head", "is_current", "is_protected", "is_checked_out"],
+      "properties": {
+        "name": { "type": "string" },
+        "head": { "type": "string" },
+        "is_current": { "type": "boolean" },
+        "is_protected": { "type": "boolean" },
+        "is_checked_out": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "local_ref_entry": {
+      "type": "object",
+      "required": ["ref", "short_name", "kind", "target_hash", "target_type", "is_protected", "is_visible"],
+      "properties": {
+        "ref": { "type": "string" },
+        "short_name": { "type": "string" },
+        "kind": { "type": "string" },
+        "target_hash": { "type": "string" },
+        "target_type": { "type": "string" },
+        "is_protected": { "type": "boolean" },
+        "is_visible": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "path_list_summary": {
+      "type": "object",
+      "required": ["files", "file_count", "files_truncated", "file_limit", "redacted_secret_path_count"],
+      "properties": {
+        "files": { "type": "array", "items": { "type": "string" } },
+        "file_count": { "type": "integer", "minimum": 0 },
+        "files_truncated": { "type": "boolean" },
+        "file_limit": { "type": "integer", "minimum": 0 },
+        "redacted_secret_path_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "commit_summary_entry": {
+      "type": "object",
+      "required": ["hash", "subject", "author_date", "changed_files", "changed_file_count", "changed_files_truncated", "changed_file_limit", "redacted_secret_path_count"],
+      "properties": {
+        "hash": { "type": "string" },
+        "subject": { "type": "string" },
+        "author_date": { "type": "string" },
+        "changed_files": { "type": "array", "items": { "type": "string" } },
+        "changed_file_count": { "type": "integer", "minimum": 0 },
+        "changed_files_truncated": { "type": "boolean" },
+        "changed_file_limit": { "type": "integer", "minimum": 0 },
+        "redacted_secret_path_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "ignore_source": {
+      "type": "object",
+      "required": ["source", "line", "pattern"],
+      "properties": {
+        "source": { "type": "string" },
+        "line": { "type": "integer", "minimum": 0 },
+        "pattern": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "path_status_entry": {
+      "type": "object",
+      "required": ["path", "exists", "is_dir", "is_symlink", "tracked", "ignored", "ignore_source", "untracked", "modified", "deleted", "staged", "unmerged", "sparse", "skip_worktree", "has_symlink_components"],
+      "properties": {
+        "path": { "type": "string" },
+        "exists": { "type": "boolean" },
+        "is_dir": { "type": "boolean" },
+        "is_symlink": { "type": "boolean" },
+        "tracked": { "type": "boolean" },
+        "ignored": { "type": "boolean" },
+        "ignore_source": {
+          "anyOf": [
+            { "$ref": "#/$defs/ignore_source" },
+            { "type": "null" }
+          ]
+        },
+        "untracked": { "type": "boolean" },
+        "modified": { "type": "boolean" },
+        "deleted": { "type": "boolean" },
+        "staged": { "type": "boolean" },
+        "unmerged": { "type": "boolean" },
+        "sparse": { "type": "boolean" },
+        "skip_worktree": { "type": "boolean" },
+        "has_symlink_components": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "submodule_entry": {
+      "type": "object",
+      "required": ["path", "head", "status", "status_code", "dirty", "uninitialised", "out_of_sync", "conflicted"],
+      "properties": {
+        "path": { "type": "string" },
+        "head": { "type": "string" },
+        "status": { "type": "string" },
+        "status_code": { "type": "string" },
+        "dirty": { "type": "boolean" },
+        "uninitialised": { "type": "boolean" },
+        "out_of_sync": { "type": "boolean" },
+        "conflicted": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "integrity_issue_count": {
+      "type": "object",
+      "required": ["code", "severity", "count"],
+      "properties": {
+        "code": { "type": "string" },
+        "severity": { "type": "string" },
+        "count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "reflog_entry": {
+      "type": "object",
+      "required": ["selector", "commit", "summary", "date"],
+      "properties": {
+        "selector": { "type": "string" },
+        "commit": { "type": "string" },
+        "summary": { "type": "string" },
+        "date": { "type": "string" }
       },
       "additionalProperties": false
     },

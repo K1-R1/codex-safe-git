@@ -211,7 +211,7 @@ print_config() {
   cat <<EOF
 [mcp_servers.codex_safe_git]
 command = "$INSTALL_DIR/bin/codex-safe-git-mcp"
-enabled_tools = ["git_status", "git_diff_summary", "commit_files", "ensure_commit_branch", "create_commit_branch", "merge_branch", "list_worktrees", "create_worktree", "safe_checkout"]
+enabled_tools = ["git_status", "git_diff_summary", "list_local_branches", "compare_refs", "commit_log_summary", "show_commit_summary", "list_local_refs", "merge_base", "changed_files_between_refs", "path_status", "submodule_summary", "repository_integrity_check", "reflog_summary", "self_check", "commit_files", "ensure_commit_branch", "create_commit_branch", "merge_branch", "list_worktrees", "create_worktree", "safe_checkout"]
 default_tools_approval_mode = "approve"
 enabled = true
 

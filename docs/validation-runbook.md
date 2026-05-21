@@ -10,6 +10,18 @@ CLI.
 - Keep `enabled_tools` to exactly:
   - `git_status`
   - `git_diff_summary`
+  - `list_local_branches`
+  - `compare_refs`
+  - `commit_log_summary`
+  - `show_commit_summary`
+  - `list_local_refs`
+  - `merge_base`
+  - `changed_files_between_refs`
+  - `path_status`
+  - `submodule_summary`
+  - `repository_integrity_check`
+  - `reflog_summary`
+  - `self_check`
   - `commit_files`
   - `ensure_commit_branch`
   - `create_commit_branch`
@@ -52,8 +64,10 @@ over stdin/stdout before changing Codex config.
 Expected evidence:
 
 - `serverInfo.name` is `codex-safe-git`.
-- `tools/list` exposes only the nine intended tools.
+- `tools/list` exposes only the intended closed tool surface.
 - `git_status` or `git_diff_summary` works for an allowed repo root.
+- read-only ref, history, path, submodule, integrity, reflog, and self-check tools return bounded
+  structured summaries.
 - `list_worktrees` redacts worktrees outside the allowlist.
 - `create_worktree` can create a disposable linked worktree under an allowed root.
 - `safe_checkout` can switch that linked worktree to another existing non-protected local branch.

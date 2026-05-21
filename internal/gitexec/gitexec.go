@@ -52,14 +52,18 @@ func ResolveGitBinary() (string, error) {
 }
 
 func (r Runner) Run(repo string, args ...string) (Result, error) {
-	return r.run(repo, args, true)
+	return r.run(repo, args, true, nil, true)
 }
 
 func (r Runner) RunAllowFailure(repo string, args ...string) (Result, error) {
-	return r.run(repo, args, false)
+	return r.run(repo, args, false, nil, true)
 }
 
-func (r Runner) run(repo string, args []string, checked bool) (Result, error) {
+func (r Runner) RunNoLiteralPathspecWithInputAllowFailure(repo, stdin string, args ...string) (Result, error) {
+	return r.run(repo, args, false, &stdin, false)
+}
+
+func (r Runner) run(repo string, args []string, checked bool, stdin *string, literalPathspecs bool) (Result, error) {
 	timeout := r.Timeout
 	if timeout <= 0 {
 		timeout = DefaultTimeout
@@ -83,8 +87,11 @@ func (r Runner) run(repo string, args []string, checked bool) (Result, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, r.GitPath, commandArgs...)
-	cmd.Env = gitEnv()
+	cmd.Env = gitEnv(literalPathspecs)
 	var stdout, stderr bytes.Buffer
+	if stdin != nil {
+		cmd.Stdin = strings.NewReader(*stdin)
+	}
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err = cmd.Run()
@@ -107,7 +114,7 @@ func (r Runner) run(repo string, args []string, checked bool) (Result, error) {
 	return result, nil
 }
 
-func gitEnv() []string {
+func gitEnv(literalPathspecs bool) []string {
 	names := []string{"PATH", "HOME", "LANG", "LC_ALL", "TMPDIR"}
 	env := make([]string, 0, len(names)+6)
 	for _, name := range names {
@@ -125,10 +132,12 @@ func gitEnv() []string {
 		"GIT_CONFIG_NOSYSTEM=1",
 		"GIT_CONFIG_SYSTEM="+os.DevNull,
 		"GIT_EDITOR=:",
-		"GIT_LITERAL_PATHSPECS=1",
 		"GIT_TERMINAL_PROMPT=0",
 		"SSH_ASKPASS="+falsePath,
 	)
+	if literalPathspecs {
+		env = append(env, "GIT_LITERAL_PATHSPECS=1")
+	}
 	return env
 }
 

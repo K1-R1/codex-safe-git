@@ -35,7 +35,7 @@
 
 ## Mitigations
 
-- Expose only nine fixed MCP tools.
+- Expose only the closed fixed MCP tool surface documented in the MCP contract.
 - Require exact worktree roots and explicit allowlists/allowed roots.
 - Refuse default-branch mutations.
 - Refuse ambiguous states and pre-staged changes.
@@ -46,6 +46,8 @@
 - Require new worktree paths to be under configured allowed roots, non-existent, non-overlapping,
   and outside secret-bearing path components.
 - Redact worktree paths that are outside configured allowlists.
+- Bound read-only ref, history, path, submodule, integrity, reflog, and self-check outputs and omit
+  patch text, blob contents, raw object dumps, and hidden allowlist paths.
 - Refuse checkout to protected branches, remote/ref/hash-like branch names, dirty worktrees, and
   branches already checked out elsewhere.
 - Refuse likely secret paths and likely secret material before staging, then rescan the staged diff

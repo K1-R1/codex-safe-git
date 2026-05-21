@@ -9,6 +9,18 @@ The Go server must expose exactly:
 
 - `git_status(repo_path)`
 - `git_diff_summary(repo_path)`
+- `list_local_branches(repo_path)`
+- `compare_refs(repo_path, base_ref, target_ref)`
+- `commit_log_summary(repo_path, ref?, limit?)`
+- `show_commit_summary(repo_path, commit_ref)`
+- `list_local_refs(repo_path)`
+- `merge_base(repo_path, left_ref, right_ref)`
+- `changed_files_between_refs(repo_path, base_ref, target_ref)`
+- `path_status(repo_path, paths[], include_ignore_source?)`
+- `submodule_summary(repo_path)`
+- `repository_integrity_check(repo_path)`
+- `reflog_summary(repo_path, ref?, limit?)`
+- `self_check(repo_path)`
 - `commit_files(repo_path, files[], message, body?)`
 - `ensure_commit_branch(repo_path, branch_name)`
 - `create_commit_branch(repo_path, branch_name)`
@@ -24,7 +36,9 @@ pre-stage and post-stage secret scanning, fail-closed audit checks for mutations
 records, and protected branch refusal for `main`, `master`, repository defaults, and
 operator-configured production branch names. Worktree and checkout tools are local-only, refuse
 protected target branches, avoid remotes, and require clean state before mutating filesystem or
-branch checkout state.
+branch checkout state. Read-only history, ref, path, submodule, integrity, reflog, and self-check
+tools return bounded structured summaries without patch text, blob contents, raw object dumps, repair,
+fetch, clone, expiry, deletion, or remote mutation.
 
 ## Local Verification
 

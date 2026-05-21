@@ -2,9 +2,8 @@
 
 The Go implementation is the canonical `codex-safe-git` safety model.
 
-- The MCP surface is exactly nine tools: `git_status`, `git_diff_summary`, `commit_files`,
-  `ensure_commit_branch`, `create_commit_branch`, `merge_branch`, `list_worktrees`,
-  `create_worktree`, and `safe_checkout`.
+- The MCP surface is closed and explicitly listed in [MCP contract](mcp-contract.md). New tools
+  require a product decision and tests before exposure.
 - Tools expose MCP annotations and output schemas so clients can reason about read-only versus
   mutating operations and validate structured results.
 - Repos must be explicitly allowlisted or exact Git worktree roots under explicit allowed roots.
@@ -28,6 +27,9 @@ The Go implementation is the canonical `codex-safe-git` safety model.
 - Mutating operations fail closed before touching Git state when the audit log is unavailable.
 - Status, diff, untracked, and worktree list payloads are bounded and include count, limit, and
   truncation metadata.
+- Ref, history, path, submodule, integrity, reflog, and self-check payloads are bounded structured
+  summaries and do not include patch text, blob contents, raw object dumps, remote state, or hidden
+  allowlist paths.
 - Git is invoked with fixed arguments only.
 - Hooks, prompts, pagers, credential helpers, editors, and GPG signing are disabled.
 - System and global Git config are ignored by Git subprocesses; repository-local config is still

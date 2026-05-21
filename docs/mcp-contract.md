@@ -9,10 +9,22 @@ intentional contract changes.
 
 ## Tool Surface
 
-The server exposes exactly nine tools:
+The server exposes exactly these tools:
 
 - `git_status(repo_path)`
 - `git_diff_summary(repo_path)`
+- `list_local_branches(repo_path)`
+- `compare_refs(repo_path, base_ref, target_ref)`
+- `commit_log_summary(repo_path, ref?, limit?)`
+- `show_commit_summary(repo_path, commit_ref)`
+- `list_local_refs(repo_path)`
+- `merge_base(repo_path, left_ref, right_ref)`
+- `changed_files_between_refs(repo_path, base_ref, target_ref)`
+- `path_status(repo_path, paths[], include_ignore_source?)`
+- `submodule_summary(repo_path)`
+- `repository_integrity_check(repo_path)`
+- `reflog_summary(repo_path, ref?, limit?)`
+- `self_check(repo_path)`
 - `commit_files(repo_path, files[], message, body?)`
 - `ensure_commit_branch(repo_path, branch_name)`
 - `create_commit_branch(repo_path, branch_name)`
@@ -21,8 +33,14 @@ The server exposes exactly nine tools:
 - `create_worktree(repo_path, worktree_path, branch_name, base_branch?)`
 - `safe_checkout(repo_path, branch_name)`
 
-No tool accepts arbitrary Git arguments, shell commands, remotes, tags, force options, push, pull,
-fetch, reset, clean, rebase, deploy, PR, publish, or credential operations.
+No tool accepts arbitrary Git arguments, shell commands, remotes, force options, push, pull, fetch,
+reset, clean, rebase, deploy, PR, publish, credential operations, or tag mutation.
+
+The read-only ref, history, path, submodule, integrity, reflog, and self-check tools return bounded
+structured summaries. They do not return patch text, blob contents, raw object contents, raw `fsck`
+output, unbounded reflog text, remote state, or hidden filesystem paths. They use explicit local refs
+or exact path lists and include count, limit, truncation, and redaction metadata where arrays are
+bounded.
 
 `list_worktrees` returns only worktree paths that are themselves explicitly allowlisted or under an
 allowed repo root. Unallowlisted worktrees are counted and redacted.

@@ -85,6 +85,11 @@ func TestToolDefinitionsExposeAnnotationsAndOutputSchemas(t *testing.T) {
 		if tool.Name == "git_status" && tool.Annotations["readOnlyHint"] != true {
 			t.Fatalf("git_status should be read-only: %#v", tool.Annotations)
 		}
+		for _, readOnlyName := range []string{"list_local_branches", "compare_refs", "commit_log_summary", "show_commit_summary", "list_local_refs", "merge_base", "changed_files_between_refs", "path_status", "submodule_summary", "repository_integrity_check", "reflog_summary", "self_check"} {
+			if tool.Name == readOnlyName && tool.Annotations["readOnlyHint"] != true {
+				t.Fatalf("%s should be read-only: %#v", tool.Name, tool.Annotations)
+			}
+		}
 		if tool.Name == "commit_files" {
 			if tool.Annotations["readOnlyHint"] != false {
 				t.Fatalf("commit_files should be mutating: %#v", tool.Annotations)
@@ -216,6 +221,18 @@ func TestToolResultSchemaCoversCurrentResultShapes(t *testing.T) {
 	for _, required := range [][]string{
 		{"result", "repo", "branch", "is_detached", "ambiguous_reasons", "has_staged_changes", "clean", "entries", "entry_count", "entries_truncated", "entry_limit", "redacted_secret_path_count"},
 		{"result", "repo", "unstaged", "staged", "untracked"},
+		{"result", "repo", "branches", "branch_count", "branches_truncated", "branch_limit"},
+		{"result", "repo", "base_ref", "target_ref", "base_commit", "target_commit", "merge_base", "ahead_count", "behind_count", "changed_file_count", "redacted_secret_path_count"},
+		{"result", "repo", "ref", "resolved_commit", "commits", "commit_count", "commits_truncated", "commit_limit"},
+		{"result", "repo", "commit_ref", "commit"},
+		{"result", "repo", "refs", "ref_count", "refs_truncated", "ref_limit"},
+		{"result", "repo", "left_ref", "right_ref", "left_commit", "right_commit", "merge_base", "is_ancestor"},
+		{"result", "repo", "base_ref", "target_ref", "base_commit", "target_commit", "changed"},
+		{"result", "repo", "entries", "entry_count", "entries_truncated", "entry_limit", "redacted_secret_path_count"},
+		{"result", "repo", "submodules", "submodule_count", "submodules_truncated", "submodule_limit", "redacted_secret_path_count"},
+		{"result", "repo", "integrity_ok", "exit_code", "issues", "issue_count", "issues_truncated", "issue_limit"},
+		{"result", "repo", "ref", "entries", "entry_count", "entries_truncated", "entry_limit", "redacted_sensitive_summary_count"},
+		{"result", "repo", "server_version", "protocol_version", "git_version", "tool_names", "tool_count", "binary_path_hash", "binary_checksum", "checksum_status", "audit_log_configured", "audit_log_writable", "allowed_repo_count", "allowed_repo_root_count", "allowlist_fingerprints", "protected_branch_count", "redacted_config_path_count"},
 		{"result", "repo", "commit_hash", "files", "audit_summary"},
 		{"result", "repo", "branch", "action", "head_commit"},
 		{"result", "repo", "source_branch", "target_branch", "action", "source_head", "target_head_before", "target_head_after"},

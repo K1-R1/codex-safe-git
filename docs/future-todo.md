@@ -15,6 +15,18 @@ The MCP surface is exactly:
 
 - `git_status`
 - `git_diff_summary`
+- `list_local_branches`
+- `compare_refs`
+- `commit_log_summary`
+- `show_commit_summary`
+- `list_local_refs`
+- `merge_base`
+- `changed_files_between_refs`
+- `path_status`
+- `submodule_summary`
+- `repository_integrity_check`
+- `reflog_summary`
+- `self_check`
 - `commit_files`
 - `ensure_commit_branch`
 - `create_commit_branch`
@@ -36,16 +48,19 @@ The MCP surface is exactly:
 - Private binary integrity uses installer-generated SHA-256 checksums and `--verify-install`.
 - Private signing strategy is documented without requiring Codex to access signing keys.
 - Protected-branch landing remains outside this MCP and is documented as a human-reviewed workflow.
+- The approved local branch, ref comparison, commit summary, path status, submodule summary,
+  integrity check, reflog summary, and self-check tools are implemented as bounded read-only
+  summaries.
 
 Automated audit deletion or rotation is intentionally not implemented. That is now a documented
 non-goal because audit movement should remain operator-owned and visible.
 
-## Remaining Work
+## Capability Record
 
-### Candidate Private/Team Enhancements
+### Implemented Private/Team Enhancements
 
-These are the next features worth considering because they are local, bounded, mostly read-only, and
-can be made compatible with the existing fail-closed safety model:
+These features were selected because they are local, bounded, mostly read-only, and compatible with
+the existing fail-closed safety model:
 
 - `list_local_branches`: list local branches with current/protected/checked-out status and HEAD
   hashes.
@@ -107,6 +122,8 @@ This is the current decision record for the safe Git MCP surface.
 | `cherry-pick` | No | It mutates index and working tree, can conflict, and can duplicate history in branch-sensitive ways. |
 | archive or bundle export | No | Export artefacts can package repository contents or objects and are a poor fit for a safety-first MCP. |
 | raw plumbing object reads | Internal only | Commands such as raw `cat-file` can expose arbitrary object contents; use them only behind bounded summary tools. |
+
+## Remaining Work
 
 Only full open-source preparation remains deferred until explicitly approved. That future work would
 include public release policy, public documentation polish, public support expectations, public
