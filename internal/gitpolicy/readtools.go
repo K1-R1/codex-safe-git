@@ -317,12 +317,20 @@ func (p Policy) RepositoryIntegrityCheck(repoPath string) (RepositoryIntegrityCh
 		return RepositoryIntegrityCheckResult{}, err
 	}
 	issues := parseIntegrityIssues(result.Stdout + "\n" + result.Stderr)
-	issueCount := len(issues)
+	issueCount := totalIntegrityIssueCount(issues)
 	issues, truncated := limitedSlice(issues, IntegrityIssueLimit)
 	if err := p.auditSuccess(audit.Entry{Action: "repository_integrity_check", Result: "ok", Repo: repo, FileCount: audit.IntPtr(issueCount)}); err != nil {
 		return RepositoryIntegrityCheckResult{}, err
 	}
 	return RepositoryIntegrityCheckResult{Result: "ok", Repo: repo, IntegrityOK: result.ExitCode == 0 && issueCount == 0, ExitCode: result.ExitCode, Issues: issues, IssueCount: issueCount, IssuesTruncated: truncated, IssueLimit: IntegrityIssueLimit}, nil
+}
+
+func totalIntegrityIssueCount(issues []IntegrityIssueCount) int {
+	total := 0
+	for _, issue := range issues {
+		total += issue.Count
+	}
+	return total
 }
 
 func (p Policy) ReflogSummary(repoPath string, ref *string, limit *int) (ReflogSummaryResult, error) {
