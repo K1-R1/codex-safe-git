@@ -71,6 +71,43 @@ can be made compatible with the existing fail-closed safety model:
 - `self_check`: report the MCP version, tool surface, binary/checksum status, audit-log writability,
   and redacted/hashed allowlist configuration.
 
+### Capability Verdicts
+
+This is the current decision record for the safe Git MCP surface.
+
+| Capability | Verdict | Reasoning |
+| --- | --- | --- |
+| `git_status` | Keep | Core read-only orientation tool; bounded, redacted, deterministic status is essential before any mutation. |
+| `git_diff_summary` | Keep | Gives file-level change counts without patch text, which is the right context-efficient default. |
+| `commit_files` | Keep | Exact-file commits with clean-state checks, secret scans, and audit logging are the safest local mutation. |
+| `ensure_commit_branch` | Keep | Safely attaches detached work to a non-protected local branch before committing. |
+| `create_commit_branch` | Keep | Provides narrow branch creation or switching without touching protected/default branches. |
+| `merge_branch` | Keep | Fast-forward-only local branch integration is predictable and reviewable. |
+| `list_worktrees` | Keep | Worktree visibility prevents branch/path confusion and avoids mutating the wrong checkout. |
+| `create_worktree` | Keep | Safe linked worktrees support long or parallel work while preserving the current checkout. |
+| `safe_checkout` | Keep | Clean-worktree, non-protected local checkout is useful and bounded. |
+| `list_local_branches` | Add | High-value branch orientation; can be read-only, bounded, and marked with protected/checked-out status. |
+| `compare_refs` | Add | Ahead/behind, merge-base, and changed-file counts help agents reason without full diffs. |
+| `commit_log_summary` | Add | Bounded commit metadata supports review and planning without dumping patches. |
+| `show_commit_summary` | Add | One-commit metadata and changed-file names are useful for audit and review with low context cost. |
+| `list_local_refs` | Add | A bounded local ref inventory helps avoid ambiguous refs and protected-branch mistakes. |
+| `merge_base` | Add | A small, read-only primitive that supports safer compare and branch reasoning. |
+| `changed_files_between_refs` | Add | File names and counts between refs are useful for review while avoiding patch text by default. |
+| `path_status` | Add | Exact path state, ignored status, sparse state, and unmerged state are high-value for safe exact-file commits. |
+| `submodule_summary` | Add | Read-only submodule inventory and dirty/uninitialised state are useful; cloning, fetching, and updating stay out of scope. |
+| `repository_integrity_check` | Add | Read-only integrity diagnostics can be safe if output is severity-counted, bounded, and never repairs or writes `lost-found`. |
+| `reflog_summary` | Add | Bounded, redacted local reflog summaries help with recovery and audit without exposing full local history. |
+| `self_check` | Add | Version, checksum, tool-surface, allowlist, and audit-log checks make MCP installation health explicit. |
+| `blame` | No | Line-level ownership output is context-heavy and can expose personal metadata; use shell Git only for explicit manual investigation. |
+| `grep` | No | Codex already has `rg`; a Git grep MCP would mostly add content and secret exposure risk. |
+| restore uncommitted files | No | Restoring can overwrite or remove working-tree changes, which conflicts with preserving user work. |
+| move or rename files | No | Normal file tools plus `commit_files` are sufficient; `git mv` also has index and submodule side effects. |
+| remove files | No | File removal is destructive and should remain explicit through normal file tools and exact-file commits. |
+| `revert` | No | Although safer than reset, it creates commits and can enter sequencer or conflict states; reconsider only with a new explicit design. |
+| `cherry-pick` | No | It mutates index and working tree, can conflict, and can duplicate history in branch-sensitive ways. |
+| archive or bundle export | No | Export artefacts can package repository contents or objects and are a poor fit for a safety-first MCP. |
+| raw plumbing object reads | Internal only | Commands such as raw `cat-file` can expose arbitrary object contents; use them only behind bounded summary tools. |
+
 Only full open-source preparation remains deferred until explicitly approved. That future work would
 include public release policy, public documentation polish, public support expectations, public
 licensing/release review, public security disclosure process, and any public distribution signing
