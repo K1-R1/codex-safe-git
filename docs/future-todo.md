@@ -59,6 +59,15 @@ can be made compatible with the existing fail-closed safety model:
 - `merge_base`: report the merge base for two local refs.
 - `changed_files_between_refs`: return bounded, redacted changed-file names and counts between two
   local refs.
+- `path_status`: report tracked, ignored, untracked, deleted, modified, unmerged, sparse, and
+  skip-worktree state for an explicit bounded path list, with optional redacted ignore-source
+  metadata.
+- `submodule_summary`: report configured and working-tree submodules, expected and current commits,
+  dirty or uninitialised state, and mutation-refusal reasons without cloning, fetching, or updating.
+- `repository_integrity_check`: run a bounded read-only integrity diagnostic and return severity
+  counts without repair, `lost-found` writes, or noisy object dumps.
+- `reflog_summary`: report recent bounded HEAD or branch movements for local recovery/audit, with
+  redacted summaries and no expire, delete, or drop behaviour.
 - `self_check`: report the MCP version, tool surface, binary/checksum status, audit-log writability,
   and redacted/hashed allowlist configuration.
 
