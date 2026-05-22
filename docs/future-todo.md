@@ -88,7 +88,8 @@ the existing fail-closed safety model:
 
 ### Capability Verdicts
 
-This is the current decision record for the safe Git MCP surface.
+This is the current decision record for the safe Git MCP surface. `Implemented` rows were previously
+approved `Add` decisions and are now part of the active tool contract.
 
 | Capability | Verdict | Reasoning |
 | --- | --- | --- |
@@ -101,18 +102,18 @@ This is the current decision record for the safe Git MCP surface.
 | `list_worktrees` | Keep | Worktree visibility prevents branch/path confusion and avoids mutating the wrong checkout. |
 | `create_worktree` | Keep | Safe linked worktrees support long or parallel work while preserving the current checkout. |
 | `safe_checkout` | Keep | Clean-worktree, non-protected local checkout is useful and bounded. |
-| `list_local_branches` | Add | High-value branch orientation; can be read-only, bounded, and marked with protected/checked-out status. |
-| `compare_refs` | Add | Ahead/behind, merge-base, and changed-file counts help agents reason without full diffs. |
-| `commit_log_summary` | Add | Bounded commit metadata supports review and planning without dumping patches. |
-| `show_commit_summary` | Add | One-commit metadata and changed-file names are useful for audit and review with low context cost. |
-| `list_local_refs` | Add | A bounded local ref inventory helps avoid ambiguous refs and protected-branch mistakes. |
-| `merge_base` | Add | A small, read-only primitive that supports safer compare and branch reasoning. |
-| `changed_files_between_refs` | Add | File names and counts between refs are useful for review while avoiding patch text by default. |
-| `path_status` | Add | Exact path state, ignored status, sparse state, and unmerged state are high-value for safe exact-file commits. |
-| `submodule_summary` | Add | Read-only submodule inventory and dirty/uninitialised state are useful; cloning, fetching, and updating stay out of scope. |
-| `repository_integrity_check` | Add | Read-only integrity diagnostics can be safe if output is severity-counted, bounded, and never repairs or writes `lost-found`. |
-| `reflog_summary` | Add | Bounded, redacted local reflog summaries help with recovery and audit without exposing full local history. |
-| `self_check` | Add | Version, checksum, tool-surface, allowlist, and audit-log checks make MCP installation health explicit. |
+| `list_local_branches` | Implemented | High-value branch orientation; read-only, bounded, and marked with protected/checked-out status. |
+| `compare_refs` | Implemented | Ahead/behind, merge-base, and changed-file counts help agents reason without full diffs. |
+| `commit_log_summary` | Implemented | Bounded commit metadata supports review and planning without dumping patches. |
+| `show_commit_summary` | Implemented | One-commit metadata and changed-file names are useful for audit and review with low context cost. |
+| `list_local_refs` | Implemented | A bounded local ref inventory helps avoid ambiguous refs and protected-branch mistakes. |
+| `merge_base` | Implemented | A small, read-only primitive that supports safer compare and branch reasoning. |
+| `changed_files_between_refs` | Implemented | File names and counts between refs are useful for review while avoiding patch text by default. |
+| `path_status` | Implemented | Exact path state, ignored status, sparse state, and unmerged state are high-value for safe exact-file commits. |
+| `submodule_summary` | Implemented | Read-only submodule inventory and dirty/uninitialised state are useful; cloning, fetching, and updating stay out of scope. |
+| `repository_integrity_check` | Implemented | Read-only integrity diagnostics are severity-counted, bounded, and never repair or write `lost-found`. |
+| `reflog_summary` | Implemented | Bounded, redacted local reflog summaries help with recovery and audit without exposing full local history. |
+| `self_check` | Implemented | Version, checksum, tool-surface, allowlist, and audit-log checks make MCP installation health explicit. |
 | `blame` | No | Line-level ownership output is context-heavy and can expose personal metadata; use shell Git only for explicit manual investigation. |
 | `grep` | No | Codex already has `rg`; a Git grep MCP would mostly add content and secret exposure risk. |
 | restore uncommitted files | No | Restoring can overwrite or remove working-tree changes, which conflicts with preserving user work. |
