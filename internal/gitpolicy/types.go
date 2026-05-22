@@ -14,6 +14,8 @@ const (
 	SubmoduleLimit         = 100
 	IntegrityIssueLimit    = 100
 	ReflogLimit            = 50
+	CommitContentScanLimit = 4 * 1024 * 1024
+	CommitLineScanLimit    = 1024 * 1024
 )
 
 type Refusal struct {

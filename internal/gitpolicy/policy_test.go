@@ -183,6 +183,45 @@ func TestSecretPathAndMaterialRefusals(t *testing.T) {
 	}
 }
 
+func TestCommitFilesSecretScanBoundsUntrackedFiles(t *testing.T) {
+	repo := testrepo.New(t)
+	repo.Write("huge.txt", strings.Repeat("safe\n", gitpolicy.CommitContentScanLimit/5+2))
+	if _, err := repo.Policy.CommitFiles(repo.Path, []string{"huge.txt"}, "Add huge file", nil); !hasReason(err, "exceeds secret scan limit") {
+		t.Fatalf("expected huge file refusal, got %v", err)
+	}
+
+	lineRepo := testrepo.New(t)
+	lineRepo.Write("long-line.txt", strings.Repeat("a", gitpolicy.CommitLineScanLimit+1))
+	if _, err := lineRepo.Policy.CommitFiles(lineRepo.Path, []string{"long-line.txt"}, "Add long line", nil); !hasReason(err, "line exceeding secret scan limit") {
+		t.Fatalf("expected long line refusal, got %v", err)
+	}
+
+	binaryRepo := testrepo.New(t)
+	binaryRepo.Write("binary.dat", "safe\x00content\n")
+	if _, err := binaryRepo.Policy.CommitFiles(binaryRepo.Path, []string{"binary.dat"}, "Add binaryish file", nil); err != nil {
+		t.Fatalf("small binary-ish file should be scanned without refusal: %v", err)
+	}
+
+	secretRepo := testrepo.New(t)
+	secretRepo.Write("late-secret.txt", strings.Repeat("safe\n", 20)+strings.Join([]string{"api", "_key = abcdefghijklmnop\n"}, ""))
+	if _, err := secretRepo.Policy.CommitFiles(secretRepo.Path, []string{"late-secret.txt"}, "Add late secret", nil); !hasReason(err, "secret material") {
+		t.Fatalf("expected late secret refusal, got %v", err)
+	}
+}
+
+func TestCommitFilesRefusesUnsafePathSyntax(t *testing.T) {
+	repo := testrepo.New(t)
+	repo.Write("normal.txt", "normal\n")
+	for _, path := range []string{" normal.txt", "normal.txt ", "dir/../normal.txt", "bad\nname.txt", "bad\tname.txt"} {
+		if _, err := repo.Policy.CommitFiles(repo.Path, []string{path}, "Try unsafe path", nil); !hasReason(err, "unsafe syntax") {
+			t.Fatalf("expected unsafe path refusal for %q, got %v", path, err)
+		}
+	}
+	if _, err := repo.Policy.CommitFiles(repo.Path, []string{repo.Abs("normal.txt")}, "Add normal absolute path", nil); err != nil {
+		t.Fatalf("absolute in-repo path should be accepted: %v", err)
+	}
+}
+
 func TestCommitFilesRefusesSecretMaterialInMessage(t *testing.T) {
 	repo := testrepo.New(t)
 	before := strings.TrimSpace(repo.Run("rev-parse", "HEAD"))
@@ -909,6 +948,12 @@ func TestCommitSummaryBoundsAndSecretPathRedaction(t *testing.T) {
 
 func TestReadOnlyToolsDoNotWriteAuditLog(t *testing.T) {
 	repo := testrepo.New(t)
+	repo.Run("switch", "-c", "codex/read-only-topic")
+	repo.Write("topic.txt", "topic\n")
+	repo.Run("add", "topic.txt")
+	repo.Run("commit", "-m", "Add read-only topic")
+	topicHead := strings.TrimSpace(repo.Run("rev-parse", "HEAD"))
+	repo.Run("switch", "work")
 
 	if _, err := repo.Policy.GitStatus(repo.Path); err != nil {
 		t.Fatal(err)
@@ -919,14 +964,59 @@ func TestReadOnlyToolsDoNotWriteAuditLog(t *testing.T) {
 	if _, err := repo.Policy.ListLocalBranches(repo.Path); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := repo.Policy.ListLocalRefs(repo.Path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.Policy.MergeBase(repo.Path, "work", "codex/read-only-topic"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.Policy.CompareRefs(repo.Path, "work", "codex/read-only-topic"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.Policy.ChangedFilesBetweenRefs(repo.Path, "work", "codex/read-only-topic"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.Policy.CommitLogSummary(repo.Path, stringPtr("codex/read-only-topic"), intPtr(2)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.Policy.ShowCommitSummary(repo.Path, topicHead); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := repo.Policy.PathStatus(repo.Path, []string{"README.md"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.Policy.SubmoduleSummary(repo.Path); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := repo.Policy.RepositoryIntegrityCheck(repo.Path); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := repo.Policy.ReflogSummary(repo.Path, nil, intPtr(2)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.Policy.ListWorktrees(repo.Path); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := repo.Policy.SelfCheck(repo.Path, "test-version", "test-protocol", []string{"git_status"}); err != nil {
 		t.Fatal(err)
+	}
+
+	for name, call := range map[string]func() error{
+		"compare_refs":       func() error { _, err := repo.Policy.CompareRefs(repo.Path, "-bad", "HEAD"); return err },
+		"commit_log_summary": func() error { _, err := repo.Policy.CommitLogSummary(repo.Path, stringPtr("abcdef1"), nil); return err },
+		"changed_files_between_refs": func() error {
+			_, err := repo.Policy.ChangedFilesBetweenRefs(repo.Path, "HEAD", "origin/main")
+			return err
+		},
+		"path_status": func() error { _, err := repo.Policy.PathStatus(repo.Path, []string{"../outside"}, nil); return err },
+		"reflog_summary": func() error {
+			_, err := repo.Policy.ReflogSummary(repo.Path, stringPtr("origin/main"), nil)
+			return err
+		},
+	} {
+		if err := call(); err == nil {
+			t.Fatalf("expected read-only refusal from %s", name)
+		}
 	}
 	if _, err := os.Stat(repo.AuditLog); !os.IsNotExist(err) {
 		t.Fatalf("read-only tools should not write audit log, stat error: %v", err)
@@ -1021,6 +1111,30 @@ func TestSubmoduleIntegrityReflogAndSelfCheck(t *testing.T) {
 	}
 	if self.AllowedRepoCount != 1 || len(self.AllowlistFingerprints) != 1 || strings.Contains(strings.Join(self.AllowlistFingerprints, ","), repo.Path) {
 		t.Fatalf("allowlist fingerprints should be redacted hashes: %#v", self)
+	}
+}
+
+func TestSubmoduleSummarySupportsPathsWithSpaces(t *testing.T) {
+	repo := testrepo.New(t)
+	childDir := filepath.Join(repo.Root, "child spaced")
+	testrepo.Run(t, "", "git", "init", "-b", "main", childDir)
+	testrepo.Run(t, childDir, "git", "config", "user.name", "Codex Safe Git Test")
+	testrepo.Run(t, childDir, "git", "config", "user.email", "codex-safe-git@example.invalid")
+	testrepo.Write(t, childDir, "child.txt", "child\n")
+	testrepo.Run(t, childDir, "git", "add", "child.txt")
+	testrepo.Run(t, childDir, "git", "commit", "-m", "Initial child")
+
+	repo.Run("-c", "protocol.file.allow=always", "submodule", "add", childDir, "vendor/child module")
+	repo.Run("add", ".gitmodules", "vendor/child module")
+	repo.Run("commit", "-m", "Add spaced submodule")
+	testrepo.Write(t, repo.Abs("vendor/child module"), "dirty.txt", "dirty\n")
+
+	submodules, err := repo.Policy.SubmoduleSummary(repo.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if submodules.SubmoduleCount != 1 || submodules.Submodules[0].Path != "vendor/child module" || !submodules.Submodules[0].Dirty {
+		t.Fatalf("unexpected submodule summary: %#v", submodules)
 	}
 }
 

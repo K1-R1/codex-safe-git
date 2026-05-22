@@ -349,23 +349,13 @@ func (p Policy) normaliseFiles(repo string, files []string) ([]string, error) {
 	seen := map[string]struct{}{}
 	result := make([]string, 0, len(files))
 	for _, item := range files {
-		if strings.TrimSpace(item) == "" {
-			return nil, refuse("requested files must be non-empty strings")
-		}
-		path := item
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(repo, path)
-		}
-		abs, err := filepath.Abs(path)
+		rel, filePath, err := normaliseRepoPath(repo, item, "requested file", "files")
 		if err != nil {
 			return nil, err
 		}
-		filePath := filepath.Clean(abs)
-		rel, err := filepath.Rel(repo, filePath)
-		if err != nil || rel == "." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." {
-			return nil, refuse("requested file is outside repo: " + item)
+		if strings.TrimSpace(item) == "" {
+			return nil, refuse("requested files must be non-empty strings")
 		}
-		rel = filepath.ToSlash(rel)
 		if _, ok := seen[rel]; ok {
 			return nil, refuse("duplicate requested file: " + rel)
 		}
@@ -402,6 +392,62 @@ func (p Policy) normaliseFiles(repo string, files []string) ([]string, error) {
 		result = append(result, rel)
 	}
 	return result, nil
+}
+
+func normaliseRepoPath(repo, input, label, emptyPlural string) (string, string, error) {
+	if strings.TrimSpace(input) == "" {
+		return "", "", refuse("requested " + emptyPlural + " must be non-empty strings")
+	}
+	if explicitPathHasUnsafeSyntax(input) {
+		return "", "", refuse(label + " has unsafe syntax")
+	}
+	path := input
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(repo, path)
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", "", err
+	}
+	clean := filepath.Clean(abs)
+	rel, err := filepath.Rel(repo, clean)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		if resolved, resolveErr := filepath.EvalSymlinks(clean); resolveErr == nil {
+			clean = filepath.Clean(resolved)
+			rel, err = filepath.Rel(repo, clean)
+		}
+	}
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", "", refuse(label + " is outside repo")
+	}
+	rel = filepath.ToSlash(rel)
+	return rel, clean, nil
+}
+
+func explicitPathHasUnsafeSyntax(input string) bool {
+	if strings.TrimSpace(input) != input || containsControlRune(input) {
+		return true
+	}
+	return hasParentPathSegment(input)
+}
+
+func containsControlRune(value string) bool {
+	for _, char := range value {
+		if char < 0x20 || char == 0x7f {
+			return true
+		}
+	}
+	return false
+}
+
+func hasParentPathSegment(value string) bool {
+	normalised := filepath.ToSlash(value)
+	for _, part := range strings.Split(normalised, "/") {
+		if part == ".." {
+			return true
+		}
+	}
+	return false
 }
 
 func rejectAttribution(message string, body *string) error {
@@ -682,7 +728,7 @@ func (p Policy) currentHead(repo string) (string, error) {
 }
 
 func (p Policy) localBranchHead(repo, branch string) (string, error) {
-	result, err := p.Git.RunAllowFailure(repo, "rev-parse", "--verify", "--quiet", "refs/heads/"+branch+"^{commit}")
+	result, err := p.Git.RunAllowFailure(repo, "rev-parse", "--verify", "--quiet", "--end-of-options", "refs/heads/"+branch+"^{commit}")
 	if err != nil {
 		return "", err
 	}
@@ -824,13 +870,8 @@ func (p Policy) rejectLikelySecretMaterial(repo string, rels []string) error {
 		if err != nil {
 			return err
 		}
-		var additions []string
 		if _, statErr := os.Stat(path); statErr == nil && !tracked {
-			lines, err := readLines(path)
-			if err != nil {
-				return err
-			}
-			additions = lines
+			return rejectLikelySecretMaterialInFile(path, rel)
 		} else {
 			diff, err := p.Git.Run(repo, "diff", "--no-ext-diff", "--unified=0", "--", rel)
 			if err != nil {
@@ -838,13 +879,10 @@ func (p Policy) rejectLikelySecretMaterial(repo string, rels []string) error {
 			}
 			for _, line := range strings.Split(diff.Stdout, "\n") {
 				if strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++") {
-					additions = append(additions, strings.TrimPrefix(line, "+"))
+					if secretcheck.ContainsLikelySecret(strings.TrimPrefix(line, "+")) {
+						return refuse("requested diff appears to contain secret material: " + rel)
+					}
 				}
-			}
-		}
-		for _, line := range additions {
-			if secretcheck.ContainsLikelySecret(line) {
-				return refuse("requested diff appears to contain secret material: " + rel)
 			}
 		}
 	}
@@ -869,19 +907,33 @@ func (p Policy) rejectLikelySecretMaterialInStagedDiff(repo string, rels []strin
 	return nil
 }
 
-func readLines(path string) ([]string, error) {
+func rejectLikelySecretMaterialInFile(path, rel string) error {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer file.Close()
-	var lines []string
+
+	total := 0
 	scanner := bufio.NewScanner(file)
-	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
+	scanner.Buffer(make([]byte, 0, 64*1024), CommitLineScanLimit)
 	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
+		line := scanner.Text()
+		total += len(line) + 1
+		if total > CommitContentScanLimit {
+			return refuse(fmt.Sprintf("requested file exceeds secret scan limit of %d bytes: %s", CommitContentScanLimit, rel))
+		}
+		if secretcheck.ContainsLikelySecret(line) {
+			return refuse("requested diff appears to contain secret material: " + rel)
+		}
 	}
-	return lines, scanner.Err()
+	if err := scanner.Err(); err != nil {
+		if strings.Contains(err.Error(), "token too long") {
+			return refuse(fmt.Sprintf("requested file contains a line exceeding secret scan limit of %d bytes: %s", CommitLineScanLimit, rel))
+		}
+		return err
+	}
+	return nil
 }
 
 func sameStringSet(left, right []string) bool {

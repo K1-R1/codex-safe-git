@@ -231,13 +231,17 @@ func (p Policy) SubmoduleSummary(repoPath string) (SubmoduleSummaryResult, error
 	if err != nil {
 		return SubmoduleSummaryResult{}, err
 	}
+	configuredSubmodulePaths, err := p.configuredSubmodulePaths(repo)
+	if err != nil {
+		return SubmoduleSummaryResult{}, err
+	}
 	submodules := make([]SubmoduleEntry, 0)
 	redacted := 0
 	for _, line := range strings.Split(status.Stdout, "\n") {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
-		entry, ok := parseSubmoduleStatusLine(line)
+		entry, ok := parseSubmoduleStatusLine(line, configuredSubmodulePaths)
 		if !ok {
 			continue
 		}
@@ -472,7 +476,7 @@ func (p Policy) resolveCommit(repo, input, label string) (resolvedCommit, error)
 		refArg = "refs/heads/" + branch + "^{commit}"
 		value = branch
 	}
-	result, err := p.Git.RunAllowFailure(repo, "rev-parse", "--verify", "--quiet", refArg)
+	result, err := p.Git.RunAllowFailure(repo, "rev-parse", "--verify", "--quiet", "--end-of-options", refArg)
 	if err != nil {
 		return resolvedCommit{}, err
 	}
@@ -669,26 +673,10 @@ func (p Policy) normaliseInspectionPaths(repo string, paths []string) ([]inspect
 	items := make([]inspectionPath, 0, len(paths))
 	redacted := 0
 	for _, input := range paths {
-		if strings.TrimSpace(input) == "" {
-			return nil, 0, refuse("requested paths must be non-empty strings")
-		}
-		if strings.TrimSpace(input) != input || strings.ContainsRune(input, '\x00') || strings.ContainsAny(input, "\n\r\t") {
-			return nil, 0, refuse("requested path has unsafe syntax")
-		}
-		path := input
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(repo, path)
-		}
-		abs, err := filepath.Abs(path)
+		rel, clean, err := normaliseRepoPath(repo, input, "requested path", "paths")
 		if err != nil {
 			return nil, 0, err
 		}
-		clean := filepath.Clean(abs)
-		rel, err := filepath.Rel(repo, clean)
-		if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-			return nil, 0, refuse("requested path is outside repo")
-		}
-		rel = filepath.ToSlash(rel)
 		if _, ok := seen[rel]; ok {
 			return nil, 0, refuse("duplicate requested path: " + rel)
 		}
@@ -870,18 +858,45 @@ func (p Policy) submoduleDirtyPaths(repo string) (map[string]bool, error) {
 	return dirty, nil
 }
 
-func parseSubmoduleStatusLine(line string) (SubmoduleEntry, bool) {
+func (p Policy) configuredSubmodulePaths(repo string) (map[string]struct{}, error) {
+	result := map[string]struct{}{}
+	config := filepath.Join(repo, ".gitmodules")
+	if _, err := os.Stat(config); errors.Is(err, os.ErrNotExist) {
+		return result, nil
+	} else if err != nil {
+		return nil, err
+	}
+	raw, err := p.Git.RunAllowFailure(repo, "config", "--file", ".gitmodules", "--get-regexp", `^submodule\..*\.path$`)
+	if err != nil {
+		return nil, err
+	}
+	if raw.ExitCode == 1 {
+		return result, nil
+	}
+	if raw.ExitCode != 0 {
+		return nil, refuse("submodule path inspection failed: " + strings.TrimSpace(raw.Stderr+raw.Stdout))
+	}
+	for _, line := range strings.Split(raw.Stdout, "\n") {
+		key, value, ok := strings.Cut(strings.TrimRight(line, "\r"), " ")
+		if !ok || strings.TrimSpace(key) == "" || strings.TrimSpace(value) == "" {
+			continue
+		}
+		result[filepath.ToSlash(strings.TrimSpace(value))] = struct{}{}
+	}
+	return result, nil
+}
+
+func parseSubmoduleStatusLine(line string, configuredPaths map[string]struct{}) (SubmoduleEntry, bool) {
 	if len(line) < 3 {
 		return SubmoduleEntry{}, false
 	}
 	code := strings.TrimSpace(line[:1])
 	rest := strings.TrimSpace(line[1:])
-	fields := strings.Fields(rest)
-	if len(fields) < 2 || !fullObjectIDPattern.MatchString(fields[0]) {
+	hash, tail, ok := strings.Cut(rest, " ")
+	if !ok || !fullObjectIDPattern.MatchString(hash) {
 		return SubmoduleEntry{}, false
 	}
-	hash := fields[0]
-	path := fields[1]
+	path := submodulePathFromStatusTail(strings.TrimSpace(tail), configuredPaths)
 	status := "clean"
 	entry := SubmoduleEntry{Path: path, Head: hash, Status: status, StatusCode: code}
 	switch code {
@@ -900,6 +915,29 @@ func parseSubmoduleStatusLine(line string) (SubmoduleEntry, bool) {
 		entry.Status = "unknown"
 	}
 	return entry, path != ""
+}
+
+func submodulePathFromStatusTail(tail string, configuredPaths map[string]struct{}) string {
+	if len(configuredPaths) > 0 {
+		paths := make([]string, 0, len(configuredPaths))
+		for path := range configuredPaths {
+			paths = append(paths, path)
+		}
+		sort.SliceStable(paths, func(i, j int) bool { return len(paths[i]) > len(paths[j]) })
+		for _, path := range paths {
+			if tail == path || strings.HasPrefix(tail, path+" ") {
+				return path
+			}
+		}
+	}
+	if index := strings.LastIndex(tail, " ("); index > 0 && strings.HasSuffix(tail, ")") {
+		return strings.TrimSpace(tail[:index])
+	}
+	fields := strings.Fields(tail)
+	if len(fields) == 0 {
+		return ""
+	}
+	return fields[0]
 }
 
 func parseIntegrityIssues(raw string) []IntegrityIssueCount {
