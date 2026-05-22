@@ -68,6 +68,8 @@ Expected evidence:
 - `git_status` or `git_diff_summary` works for an allowed repo root.
 - read-only ref, history, path, submodule, integrity, reflog, and self-check tools return bounded
   structured summaries.
+- oversized or malformed stdio requests return structured errors and later valid requests still
+  succeed.
 - `list_worktrees` redacts worktrees outside the allowlist.
 - `create_worktree` can create a disposable linked worktree under an allowed root.
 - `safe_checkout` can switch that linked worktree to another existing non-protected local branch.
@@ -87,6 +89,7 @@ Expected evidence:
 - The install path is stable, user-owned, and not a source worktree dependency.
 - The printed config uses the Go binary.
 - The config has explicit allowed roots and audit log path.
+- The printed TOML config escapes quotes, backslashes, tabs, and newlines in paths or branch lists.
 - The default allowed root `~/.codex/worktrees` exists after install.
 - The installed binary has a sibling `.sha256` file.
 - `--verify-install` detects the binary checksum correctly.

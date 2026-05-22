@@ -51,6 +51,10 @@ The MCP surface is exactly:
 - The approved local branch, ref comparison, commit summary, path status, submodule summary,
   integrity check, reflog summary, and self-check tools are implemented as bounded read-only
   summaries.
+- Completion hardening is implemented: streaming bounded secret scans for new files, stricter
+  commit path syntax, `rev-parse --end-of-options` verification, path-aware submodule parsing,
+  stronger MCP schema parity tests, bounded stdio request handling, installer TOML escaping, and
+  explicit non-mutating `self_check` audit-log writability semantics.
 
 Automated audit deletion or rotation is intentionally not implemented. That is now a documented
 non-goal because audit movement should remain operator-owned and visible.
@@ -126,10 +130,11 @@ approved `Add` decisions and are now part of the active tool contract.
 
 ## Remaining Work
 
-Only full open-source preparation remains deferred until explicitly approved. That future work would
-include public release policy, public documentation polish, public support expectations, public
-licensing/release review, public security disclosure process, and any public distribution signing
-process.
+Only full open-source preparation remains deferred until explicitly approved. No private/team
+implementation, verification, safety, token-efficiency, MCP-contract, or documentation completion
+items are currently open. Future open-source work would include public release policy, public
+documentation polish, public support expectations, public licensing/release review, public security
+disclosure process, and any public distribution signing process.
 
 ## Permanent Non-Goals
 

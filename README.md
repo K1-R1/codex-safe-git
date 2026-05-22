@@ -31,10 +31,11 @@ The Go server must expose exactly:
 
 No tool accepts arbitrary Git arguments or shell commands.
 
-Safety-critical guarantees include literal exact-file staging, symlink refusal for requested files,
-pre-stage and post-stage secret scanning, commit-message secret scanning, fail-closed audit checks for
-mutations, metadata-only audit records, trusted Git executable resolution, hard-bounded Git
-stdout/stderr capture, and protected branch refusal for `main`, `master`, repository defaults, and
+Safety-critical guarantees include literal exact-file staging, strict exact-path syntax validation,
+symlink refusal for requested files, bounded streaming secret scans before staging, post-stage secret
+rescans, commit-message secret scanning, fail-closed audit checks for mutations, metadata-only audit
+records, trusted Git executable resolution, hard-bounded Git stdout/stderr capture, bounded stdio
+request handling, and protected branch refusal for `main`, `master`, repository defaults, and
 operator-configured production branch names. Worktree and checkout tools are local-only, refuse
 protected target branches, avoid remotes, and require clean state before mutating filesystem or
 branch checkout state. Read-only history, ref, path, submodule, integrity, reflog, and self-check

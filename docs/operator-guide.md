@@ -149,6 +149,8 @@ diffs, secrets, credentials, keychain material, shell profiles, or environment d
 Keep the audit log under a user-owned path such as `~/.codex/log/codex-safe-git-audit.jsonl`.
 Mutating operations check audit writability before touching Git state and refuse if the audit log is
 unavailable.
+`self_check.audit_log_writable` is a non-mutating path and permission check for operator visibility;
+it does not append to the audit log.
 
 See [Audit policy](audit-policy.md) for the private/team retention, review, and rotation policy.
 

@@ -72,6 +72,8 @@ worktrees are counted separately and still redacted before truncation.
 
 Git subprocess stdout and stderr capture is hard-bounded before tool-level parsing. If Git exceeds
 that bound, the tool fails closed instead of interpreting or returning partial command output.
+Stdio JSON-RPC request frames are also bounded. Oversized or malformed frames return structured
+JSON-RPC errors and do not prevent later valid requests on the same stream from being handled.
 
 All refusals return:
 
@@ -99,8 +101,9 @@ Refusals also set `isError: true`.
 - Mutating operations require a writable audit log before Git state is changed.
 - Requested commit file paths are literal and must not resolve through symlinks.
 - Commit requests are bounded to 200 explicit files.
-- `commit_files` scans likely secret material before staging and rescans the staged diff before
-  committing.
+- `commit_files` rejects unsafe path syntax, streams bounded likely-secret scans before staging, and
+  rescans the staged diff before committing.
+- `self_check.audit_log_writable` is a non-mutating permission/path check, not an append probe.
 - Worktree paths returned by `list_worktrees` must not disclose unallowlisted local paths.
 - Git subprocesses ignore system and global Git config, while still reading repository-local config
   needed for the current worktree.

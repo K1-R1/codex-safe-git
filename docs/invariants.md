@@ -20,8 +20,8 @@ The Go implementation is the canonical `codex-safe-git` safety model.
 - Commits stage exactly the listed file set and verify the staged set before committing.
 - Commit file paths are literal paths only; Git pathspec magic and symlink indirection are not allowed
   to expand or redirect the requested file set.
-- Secret-bearing paths and likely secret material are refused before commit, including a second scan
-  of the staged diff after exact-file staging.
+- Secret-bearing paths and likely secret material are refused before commit. Untracked file content is
+  scanned with byte and line bounds, and staged diffs are rescanned after exact-file staging.
 - Audit records are metadata-only and never include file contents, full diffs, environment dumps, or
   credentials.
 - Mutating operations fail closed before touching Git state when the audit log is unavailable.
@@ -32,6 +32,8 @@ The Go implementation is the canonical `codex-safe-git` safety model.
   allowlist paths.
 - Git subprocess stdout and stderr capture is hard-bounded before higher-level parsing, and oversized
   command output fails closed instead of being partially interpreted.
+- MCP stdio request frames are bounded and malformed or oversized frames return structured errors
+  without preventing later valid requests on the stream.
 - MCP read-only tools do not write audit records or other intentional local state.
 - Git is invoked with fixed arguments only.
 - Hooks, prompts, pagers, credential helpers, editors, and GPG signing are disabled.
