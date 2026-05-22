@@ -21,6 +21,8 @@ Defaults:
 - allowed roots: `~/.codex/worktrees`
 - audit log: `~/.codex/log/codex-safe-git-audit.jsonl`
 - protected branches: built-in `main`/`master` plus the repo's configured `init.defaultBranch`
+- git executable: trusted system/Homebrew/MacPorts/Nix Git from `PATH`, or explicit
+  `CODEX_SAFE_GIT_GIT_PATH`
 
 Supported overrides:
 
@@ -30,6 +32,7 @@ CODEX_SAFE_GIT_INSTALL_DIR="$HOME/.codex/tools/codex-safe-git-go" \
 CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS="$HOME/.codex/worktrees:$HOME/personal/projects" \
 CODEX_SAFE_GIT_AUDIT_LOG="$HOME/.codex/log/codex-safe-git-audit.jsonl" \
 CODEX_SAFE_GIT_PROTECTED_BRANCHES="trunk,develop" \
+CODEX_SAFE_GIT_GIT_PATH="/usr/bin/git" \
 scripts/install-local.sh
 ```
 
@@ -64,6 +67,7 @@ enabled = true
 CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS = "/Users/you/.codex/worktrees:/Users/you/projects"
 CODEX_SAFE_GIT_AUDIT_LOG = "/Users/you/.codex/log/codex-safe-git-audit.jsonl"
 CODEX_SAFE_GIT_PROTECTED_BRANCHES = "trunk,develop"
+CODEX_SAFE_GIT_GIT_PATH = "/usr/bin/git"
 ```
 
 `default_tools_approval_mode = "approve"` applies only to this narrow MCP server. It does not change
@@ -91,6 +95,13 @@ Avoid:
 
 For highly sensitive work, use `CODEX_SAFE_GIT_ALLOWED_REPOS` with exact repo paths instead of broad
 roots.
+
+## Git Executable
+
+By default the server accepts `git` only from narrow trusted install locations such as `/usr/bin`,
+Homebrew, MacPorts, or Nix store paths. If your team uses a different Git binary, set
+`CODEX_SAFE_GIT_GIT_PATH` to an absolute operator-controlled path. The server refuses relative paths,
+unexpected executable names, and untrusted `PATH` lookups.
 
 ## Protected Branches
 

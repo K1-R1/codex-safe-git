@@ -13,7 +13,7 @@ import (
 )
 
 const ProtocolVersion = "2025-11-25"
-const ServerVersion = "0.4.0"
+const ServerVersion = "0.4.1"
 
 type Server struct {
 	Policy *gitpolicy.Policy
@@ -421,8 +421,8 @@ func tools() []map[string]any {
 		tool("commit_files", "Commit Files", "Create a local commit from exactly listed files after deterministic safety checks.", []string{"repo_path", "files", "message"}, map[string]any{
 			"repo_path": stringInput("Exact Git worktree root where the commit will be created."),
 			"files":     map[string]any{"type": "array", "items": stringInput("Repo-relative file path."), "minItems": 1, "maxItems": gitpolicy.CommitFileLimit, "uniqueItems": true},
-			"message":   stringInput("Commit subject without AI/tool attribution."),
-			"body":      map[string]any{"type": "string", "description": "Optional commit body without AI/tool attribution."},
+			"message":   boundedStringInput("Commit subject without AI/tool attribution or secret material.", gitpolicy.CommitMessageSubjectLimit),
+			"body":      optionalBoundedStringInput("Optional commit body without AI/tool attribution or secret material.", gitpolicy.CommitMessageBodyLimit),
 		}, mutatingAnnotations("Commit Files", false), commitOutputSchema()),
 		tool("ensure_commit_branch", "Ensure Commit Branch", "Attach a detached worktree to a safe local non-default branch at current HEAD.", []string{"repo_path", "branch_name"}, map[string]any{
 			"repo_path":   stringInput("Exact Git worktree root to prepare."),
@@ -481,6 +481,14 @@ func tool(name, title, description string, required []string, properties map[str
 
 func stringInput(description string) map[string]any {
 	return map[string]any{"type": "string", "minLength": 1, "description": description}
+}
+
+func boundedStringInput(description string, max int) map[string]any {
+	return map[string]any{"type": "string", "minLength": 1, "maxLength": max, "description": description}
+}
+
+func optionalBoundedStringInput(description string, max int) map[string]any {
+	return map[string]any{"type": "string", "maxLength": max, "description": description}
 }
 
 func limitInput(max int, description string) map[string]any {

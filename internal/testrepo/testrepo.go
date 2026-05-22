@@ -80,6 +80,14 @@ func run(t *testing.T, dir, name string, args ...string) string {
 	if dir != "" {
 		cmd.Dir = dir
 	}
+	if filepath.Base(name) == "git" {
+		cmd.Env = append(os.Environ(),
+			"GIT_CONFIG_GLOBAL="+os.DevNull,
+			"GIT_CONFIG_NOSYSTEM=1",
+			"GIT_CONFIG_SYSTEM="+os.DevNull,
+			"GIT_TERMINAL_PROMPT=0",
+		)
+	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("%s %v failed: %v\n%s", name, args, err, out)

@@ -6,6 +6,10 @@ cd "$ROOT"
 
 go_bin="${GO:-go}"
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/codex-safe-git-smoke.XXXXXX")"
+export GIT_CONFIG_GLOBAL=/dev/null
+export GIT_CONFIG_NOSYSTEM=1
+export GIT_CONFIG_SYSTEM=/dev/null
+export GIT_TERMINAL_PROMPT=0
 cleanup() {
   rm -rf "$tmp"
 }

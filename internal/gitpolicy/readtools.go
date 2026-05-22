@@ -12,11 +12,11 @@ import (
 	"strconv"
 	"strings"
 
-	"local/codex-safe-git/internal/audit"
 	"local/codex-safe-git/internal/secretcheck"
 )
 
-var fullHashPattern = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
+var fullObjectIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{40}$|^[0-9a-fA-F]{64}$`)
+var hexObjectIDLikePattern = regexp.MustCompile(`^[0-9a-fA-F]{7,64}$`)
 
 type resolvedCommit struct {
 	Input  string
@@ -37,17 +37,14 @@ func (p Policy) ListLocalBranches(repoPath string) (ListLocalBranchesResult, err
 	}
 	branches, err := p.localBranches(repo)
 	if err != nil {
-		p.auditRefusal("list_local_branches", repoPath, err)
 		return ListLocalBranchesResult{}, err
 	}
 	protected, err := p.protectedBranches(repo)
 	if err != nil {
-		p.auditRefusal("list_local_branches", repoPath, err)
 		return ListLocalBranchesResult{}, err
 	}
 	state, err := p.repoState(repo)
 	if err != nil {
-		p.auditRefusal("list_local_branches", repoPath, err)
 		return ListLocalBranchesResult{}, err
 	}
 	checkedOut := p.checkedOutBranches(repo)
@@ -61,9 +58,6 @@ func (p Policy) ListLocalBranches(repoPath string) (ListLocalBranchesResult, err
 	sort.SliceStable(branches, func(i, j int) bool { return branches[i].Name < branches[j].Name })
 	count := len(branches)
 	branches, truncated := limitedSlice(branches, BranchLimit)
-	if err := p.auditSuccess(audit.Entry{Action: "list_local_branches", Result: "ok", Repo: repo, FileCount: audit.IntPtr(count)}); err != nil {
-		return ListLocalBranchesResult{}, err
-	}
 	return ListLocalBranchesResult{Result: "ok", Repo: repo, Branches: branches, BranchCount: count, BranchesTruncated: truncated, BranchLimit: BranchLimit}, nil
 }
 
@@ -74,14 +68,10 @@ func (p Policy) ListLocalRefs(repoPath string) (ListLocalRefsResult, error) {
 	}
 	refs, err := p.localRefs(repo)
 	if err != nil {
-		p.auditRefusal("list_local_refs", repoPath, err)
 		return ListLocalRefsResult{}, err
 	}
 	count := len(refs)
 	refs, truncated := limitedSlice(refs, RefLimit)
-	if err := p.auditSuccess(audit.Entry{Action: "list_local_refs", Result: "ok", Repo: repo, FileCount: audit.IntPtr(count)}); err != nil {
-		return ListLocalRefsResult{}, err
-	}
 	return ListLocalRefsResult{Result: "ok", Repo: repo, Refs: refs, RefCount: count, RefsTruncated: truncated, RefLimit: RefLimit}, nil
 }
 
@@ -92,15 +82,10 @@ func (p Policy) MergeBase(repoPath, leftRef, rightRef string) (MergeBaseResult, 
 	}
 	left, right, base, err := p.resolveRefPair(repo, leftRef, rightRef)
 	if err != nil {
-		p.auditRefusal("merge_base", repoPath, err)
 		return MergeBaseResult{}, err
 	}
 	isAncestor, err := p.isAncestor(repo, left.Commit, right.Commit)
 	if err != nil {
-		p.auditRefusal("merge_base", repoPath, err)
-		return MergeBaseResult{}, err
-	}
-	if err := p.auditSuccess(audit.Entry{Action: "merge_base", Result: "ok", Repo: repo, SourceBranch: left.Input, TargetBranch: right.Input, CommitHash: base}); err != nil {
 		return MergeBaseResult{}, err
 	}
 	return MergeBaseResult{Result: "ok", Repo: repo, LeftRef: left.Input, RightRef: right.Input, LeftCommit: left.Commit, RightCommit: right.Commit, MergeBase: base, IsAncestor: isAncestor}, nil
@@ -113,25 +98,18 @@ func (p Policy) CompareRefs(repoPath, baseRef, targetRef string) (CompareRefsRes
 	}
 	base, target, mergeBase, err := p.resolveRefPair(repo, baseRef, targetRef)
 	if err != nil {
-		p.auditRefusal("compare_refs", repoPath, err)
 		return CompareRefsResult{}, err
 	}
 	ahead, err := p.revCount(repo, base.Commit+".."+target.Commit)
 	if err != nil {
-		p.auditRefusal("compare_refs", repoPath, err)
 		return CompareRefsResult{}, err
 	}
 	behind, err := p.revCount(repo, target.Commit+".."+base.Commit)
 	if err != nil {
-		p.auditRefusal("compare_refs", repoPath, err)
 		return CompareRefsResult{}, err
 	}
 	changed, err := p.changedPathSummary(repo, base.Commit, target.Commit)
 	if err != nil {
-		p.auditRefusal("compare_refs", repoPath, err)
-		return CompareRefsResult{}, err
-	}
-	if err := p.auditSuccess(audit.Entry{Action: "compare_refs", Result: "ok", Repo: repo, SourceBranch: base.Input, TargetBranch: target.Input, FileCount: audit.IntPtr(changed.FileCount), RedactedSecretPathCount: audit.IntPtr(changed.RedactedSecretPathCount)}); err != nil {
 		return CompareRefsResult{}, err
 	}
 	return CompareRefsResult{
@@ -156,15 +134,10 @@ func (p Policy) ChangedFilesBetweenRefs(repoPath, baseRef, targetRef string) (Ch
 	}
 	base, target, _, err := p.resolveRefPair(repo, baseRef, targetRef)
 	if err != nil {
-		p.auditRefusal("changed_files_between_refs", repoPath, err)
 		return ChangedFilesBetweenRefsResult{}, err
 	}
 	changed, err := p.changedPathSummary(repo, base.Commit, target.Commit)
 	if err != nil {
-		p.auditRefusal("changed_files_between_refs", repoPath, err)
-		return ChangedFilesBetweenRefsResult{}, err
-	}
-	if err := p.auditSuccess(audit.Entry{Action: "changed_files_between_refs", Result: "ok", Repo: repo, SourceBranch: base.Input, TargetBranch: target.Input, FileCount: audit.IntPtr(changed.FileCount), RedactedSecretPathCount: audit.IntPtr(changed.RedactedSecretPathCount)}); err != nil {
 		return ChangedFilesBetweenRefsResult{}, err
 	}
 	return ChangedFilesBetweenRefsResult{Result: "ok", Repo: repo, BaseRef: base.Input, TargetRef: target.Input, BaseCommit: base.Commit, TargetCommit: target.Commit, Changed: changed}, nil
@@ -181,20 +154,14 @@ func (p Policy) CommitLogSummary(repoPath string, ref *string, limit *int) (Comm
 	}
 	resolved, err := p.resolveCommit(repo, refName, "ref")
 	if err != nil {
-		p.auditRefusal("commit_log_summary", repoPath, err)
 		return CommitLogSummaryResult{}, err
 	}
 	requestedLimit, err := boundedLimit(limit, LogCommitLimit, "limit")
 	if err != nil {
-		p.auditRefusal("commit_log_summary", repoPath, err)
 		return CommitLogSummaryResult{}, err
 	}
 	commits, truncated, err := p.commitSummaries(repo, resolved.Commit, requestedLimit)
 	if err != nil {
-		p.auditRefusal("commit_log_summary", repoPath, err)
-		return CommitLogSummaryResult{}, err
-	}
-	if err := p.auditSuccess(audit.Entry{Action: "commit_log_summary", Result: "ok", Repo: repo, Branch: resolved.Input, FileCount: audit.IntPtr(len(commits))}); err != nil {
 		return CommitLogSummaryResult{}, err
 	}
 	return CommitLogSummaryResult{Result: "ok", Repo: repo, Ref: resolved.Input, ResolvedCommit: resolved.Commit, Commits: commits, CommitCount: len(commits), CommitsTruncated: truncated, CommitLimit: requestedLimit}, nil
@@ -207,15 +174,10 @@ func (p Policy) ShowCommitSummary(repoPath, commitRef string) (ShowCommitSummary
 	}
 	resolved, err := p.resolveCommit(repo, commitRef, "commit_ref")
 	if err != nil {
-		p.auditRefusal("show_commit_summary", repoPath, err)
 		return ShowCommitSummaryResult{}, err
 	}
 	commit, err := p.commitSummary(repo, resolved.Commit)
 	if err != nil {
-		p.auditRefusal("show_commit_summary", repoPath, err)
-		return ShowCommitSummaryResult{}, err
-	}
-	if err := p.auditSuccess(audit.Entry{Action: "show_commit_summary", Result: "ok", Repo: repo, Branch: resolved.Input, CommitHash: resolved.Commit, FileCount: audit.IntPtr(commit.ChangedFileCount), RedactedSecretPathCount: audit.IntPtr(commit.RedactedSecretPathCount)}); err != nil {
 		return ShowCommitSummaryResult{}, err
 	}
 	return ShowCommitSummaryResult{Result: "ok", Repo: repo, CommitRef: resolved.Input, Commit: commit}, nil
@@ -228,18 +190,15 @@ func (p Policy) PathStatus(repoPath string, paths []string, includeIgnoreSource 
 	}
 	items, redacted, err := p.normaliseInspectionPaths(repo, paths)
 	if err != nil {
-		p.auditRefusal("path_status", repoPath, err)
 		return PathStatusResult{}, err
 	}
 	includeSource := includeIgnoreSource != nil && *includeIgnoreSource
 	statusByPath, err := p.statusByPath(repo)
 	if err != nil {
-		p.auditRefusal("path_status", repoPath, err)
 		return PathStatusResult{}, err
 	}
 	lsTags, err := p.lsFileTags(repo, relsFromInspection(items))
 	if err != nil {
-		p.auditRefusal("path_status", repoPath, err)
 		return PathStatusResult{}, err
 	}
 	entries := make([]PathStatusEntry, 0, len(items))
@@ -249,7 +208,6 @@ func (p Policy) PathStatus(repoPath string, paths []string, includeIgnoreSource 
 		}
 		entry, err := p.onePathStatus(repo, item, statusByPath[item.Rel], lsTags[item.Rel], includeSource)
 		if err != nil {
-			p.auditRefusal("path_status", repoPath, err)
 			return PathStatusResult{}, err
 		}
 		entries = append(entries, entry)
@@ -257,9 +215,6 @@ func (p Policy) PathStatus(repoPath string, paths []string, includeIgnoreSource 
 	sort.SliceStable(entries, func(i, j int) bool { return entries[i].Path < entries[j].Path })
 	count := len(entries)
 	entries, truncated := limitedSlice(entries, PathStatusLimit)
-	if err := p.auditSuccess(audit.Entry{Action: "path_status", Result: "ok", Repo: repo, FileCount: audit.IntPtr(count), RedactedSecretPathCount: audit.IntPtr(redacted)}); err != nil {
-		return PathStatusResult{}, err
-	}
 	return PathStatusResult{Result: "ok", Repo: repo, Entries: entries, EntryCount: count, EntriesTruncated: truncated, EntryLimit: PathStatusLimit, RedactedSecretPathCount: redacted}, nil
 }
 
@@ -270,12 +225,10 @@ func (p Policy) SubmoduleSummary(repoPath string) (SubmoduleSummaryResult, error
 	}
 	status, err := p.Git.Run(repo, "submodule", "status", "--recursive")
 	if err != nil {
-		p.auditRefusal("submodule_summary", repoPath, err)
 		return SubmoduleSummaryResult{}, err
 	}
 	dirtyPaths, err := p.submoduleDirtyPaths(repo)
 	if err != nil {
-		p.auditRefusal("submodule_summary", repoPath, err)
 		return SubmoduleSummaryResult{}, err
 	}
 	submodules := make([]SubmoduleEntry, 0)
@@ -300,9 +253,6 @@ func (p Policy) SubmoduleSummary(repoPath string) (SubmoduleSummaryResult, error
 	sort.SliceStable(submodules, func(i, j int) bool { return submodules[i].Path < submodules[j].Path })
 	count := len(submodules)
 	submodules, truncated := limitedSlice(submodules, SubmoduleLimit)
-	if err := p.auditSuccess(audit.Entry{Action: "submodule_summary", Result: "ok", Repo: repo, FileCount: audit.IntPtr(count), RedactedSecretPathCount: audit.IntPtr(redacted)}); err != nil {
-		return SubmoduleSummaryResult{}, err
-	}
 	return SubmoduleSummaryResult{Result: "ok", Repo: repo, Submodules: submodules, SubmoduleCount: count, SubmodulesTruncated: truncated, SubmoduleLimit: SubmoduleLimit, RedactedSecretPathCount: redacted}, nil
 }
 
@@ -313,15 +263,11 @@ func (p Policy) RepositoryIntegrityCheck(repoPath string) (RepositoryIntegrityCh
 	}
 	result, err := p.Git.RunAllowFailure(repo, "fsck", "--connectivity-only", "--no-dangling", "--no-progress")
 	if err != nil {
-		p.auditRefusal("repository_integrity_check", repoPath, err)
 		return RepositoryIntegrityCheckResult{}, err
 	}
 	issues := parseIntegrityIssues(result.Stdout + "\n" + result.Stderr)
 	issueCount := totalIntegrityIssueCount(issues)
 	issues, truncated := limitedSlice(issues, IntegrityIssueLimit)
-	if err := p.auditSuccess(audit.Entry{Action: "repository_integrity_check", Result: "ok", Repo: repo, FileCount: audit.IntPtr(issueCount)}); err != nil {
-		return RepositoryIntegrityCheckResult{}, err
-	}
 	return RepositoryIntegrityCheckResult{Result: "ok", Repo: repo, IntegrityOK: result.ExitCode == 0 && issueCount == 0, ExitCode: result.ExitCode, Issues: issues, IssueCount: issueCount, IssuesTruncated: truncated, IssueLimit: IntegrityIssueLimit}, nil
 }
 
@@ -344,20 +290,14 @@ func (p Policy) ReflogSummary(repoPath string, ref *string, limit *int) (ReflogS
 	}
 	normalisedRef, err := p.normaliseReflogRef(repo, refName)
 	if err != nil {
-		p.auditRefusal("reflog_summary", repoPath, err)
 		return ReflogSummaryResult{}, err
 	}
 	requestedLimit, err := boundedLimit(limit, ReflogLimit, "limit")
 	if err != nil {
-		p.auditRefusal("reflog_summary", repoPath, err)
 		return ReflogSummaryResult{}, err
 	}
 	entries, redacted, truncated, err := p.reflogEntries(repo, normalisedRef, requestedLimit)
 	if err != nil {
-		p.auditRefusal("reflog_summary", repoPath, err)
-		return ReflogSummaryResult{}, err
-	}
-	if err := p.auditSuccess(audit.Entry{Action: "reflog_summary", Result: "ok", Repo: repo, Branch: normalisedRef, FileCount: audit.IntPtr(len(entries))}); err != nil {
 		return ReflogSummaryResult{}, err
 	}
 	return ReflogSummaryResult{Result: "ok", Repo: repo, Ref: normalisedRef, Entries: entries, EntryCount: len(entries), EntriesTruncated: truncated, EntryLimit: requestedLimit, RedactedSensitiveSummaryCount: redacted}, nil
@@ -396,24 +336,18 @@ func (p Policy) SelfCheck(repoPath, serverVersion, protocolVersion string, toolN
 		ProtectedBranchCount:    len(p.Config.ProtectedBranches),
 		RedactedConfigPathCount: len(p.Config.AllowedRepos) + len(p.Config.AllowedRepoRoots),
 	}
-	if auditWritable {
-		_ = p.auditSuccess(audit.Entry{Action: "self_check", Result: "ok", Repo: repo, FileCount: audit.IntPtr(len(names))})
-	}
 	return payload, nil
 }
 
-func (p Policy) readOnlyRepo(action, repoPath string) (string, error) {
+func (p Policy) readOnlyRepo(_ string, repoPath string) (string, error) {
 	repo, err := p.resolveAllowedRepo(repoPath)
 	if err != nil {
-		p.auditRefusal(action, repoPath, err)
 		return "", err
 	}
 	if err := p.requireGitRepo(repo); err != nil {
-		p.auditRefusal(action, repoPath, err)
 		return "", err
 	}
 	if err := p.requireNoExecutionConfig(repo); err != nil {
-		p.auditRefusal(action, repoPath, err)
 		return "", err
 	}
 	return repo, nil
@@ -507,12 +441,21 @@ func (p Policy) resolveCommit(repo, input, label string) (resolvedCommit, error)
 	if value != input || strings.ContainsRune(value, '\x00') || strings.HasPrefix(value, "-") {
 		return resolvedCommit{}, refuse(label + " has unsafe syntax")
 	}
+	objectIDLength, err := p.objectIDLength(repo)
+	if err != nil {
+		return resolvedCommit{}, err
+	}
 	refArg := ""
 	switch {
 	case value == "HEAD":
 		refArg = "HEAD^{commit}"
-	case fullHashPattern.MatchString(value):
+	case fullObjectIDPattern.MatchString(value):
+		if len(value) != objectIDLength {
+			return resolvedCommit{}, refuse(label + " must be a full object id for this repository format")
+		}
 		refArg = value + "^{commit}"
+	case hexObjectIDLikePattern.MatchString(value):
+		return resolvedCommit{}, refuse(label + " must be a full object id for this repository format")
 	case strings.HasPrefix(value, "refs/heads/"):
 		branch := strings.TrimPrefix(value, "refs/heads/")
 		normalised, err := p.normaliseBranchName(branch)
@@ -537,10 +480,32 @@ func (p Policy) resolveCommit(repo, input, label string) (resolvedCommit, error)
 		return resolvedCommit{}, refuse(label + " does not resolve to a local commit")
 	}
 	commit := strings.TrimSpace(result.Stdout)
-	if !fullHashPattern.MatchString(commit) {
+	if !isFullObjectIDForLength(commit, objectIDLength) {
 		return resolvedCommit{}, refuse(label + " resolved to an unexpected object id")
 	}
 	return resolvedCommit{Input: value, Commit: commit}, nil
+}
+
+func (p Policy) objectIDLength(repo string) (int, error) {
+	result, err := p.Git.RunAllowFailure(repo, "rev-parse", "--show-object-format")
+	if err != nil {
+		return 0, err
+	}
+	if result.ExitCode != 0 {
+		return 0, refuse("object format inspection failed")
+	}
+	switch strings.TrimSpace(result.Stdout) {
+	case "sha1":
+		return 40, nil
+	case "sha256":
+		return 64, nil
+	default:
+		return 0, refuse("unsupported Git object format")
+	}
+}
+
+func isFullObjectIDForLength(value string, length int) bool {
+	return len(value) == length && fullObjectIDPattern.MatchString(value)
 }
 
 func (p Policy) mergeBase(repo, left, right string) (string, error) {
@@ -784,14 +749,19 @@ func (p Policy) lsFileTags(repo string, rels []string) (map[string]string, error
 }
 
 func (p Policy) onePathStatus(repo string, item inspectionPath, status StatusEntry, lsTag string, includeIgnoreSource bool) (PathStatusEntry, error) {
-	info, statErr := os.Lstat(item.Abs)
-	exists := statErr == nil
-	if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
-		return PathStatusEntry{}, statErr
-	}
 	hasSymlinkComponents, err := pathPrefixContainsSymlink(repo, item.Rel)
 	if err != nil {
 		return PathStatusEntry{}, err
+	}
+	var info os.FileInfo
+	exists := false
+	if !hasSymlinkComponents {
+		statInfo, statErr := os.Lstat(item.Abs)
+		exists = statErr == nil
+		if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
+			return PathStatusEntry{}, statErr
+		}
+		info = statInfo
 	}
 	ignored := false
 	var source *IgnoreSource
@@ -901,16 +871,17 @@ func (p Policy) submoduleDirtyPaths(repo string) (map[string]bool, error) {
 }
 
 func parseSubmoduleStatusLine(line string) (SubmoduleEntry, bool) {
-	if len(line) < 42 {
+	if len(line) < 3 {
 		return SubmoduleEntry{}, false
 	}
 	code := strings.TrimSpace(line[:1])
-	hash := strings.TrimSpace(line[1:41])
-	rest := strings.TrimSpace(line[41:])
-	path := rest
-	if before, _, ok := strings.Cut(rest, " "); ok {
-		path = before
+	rest := strings.TrimSpace(line[1:])
+	fields := strings.Fields(rest)
+	if len(fields) < 2 || !fullObjectIDPattern.MatchString(fields[0]) {
+		return SubmoduleEntry{}, false
 	}
+	hash := fields[0]
+	path := fields[1]
 	status := "clean"
 	entry := SubmoduleEntry{Path: path, Head: hash, Status: status, StatusCode: code}
 	switch code {
@@ -1091,9 +1062,8 @@ func auditLogLikelyWritable(path string) bool {
 	if path == "" || hasSecretPathComponent(path) {
 		return false
 	}
-	if file, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0); err == nil {
-		_ = file.Close()
-		return true
+	if info, err := os.Stat(path); err == nil {
+		return !info.IsDir() && info.Mode().Perm()&0o200 != 0
 	}
 	parent := filepath.Dir(path)
 	info, err := os.Stat(parent)

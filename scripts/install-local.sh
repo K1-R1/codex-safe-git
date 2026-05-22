@@ -13,6 +13,7 @@ else
 fi
 AUDIT_LOG="${CODEX_SAFE_GIT_AUDIT_LOG:-"$CODEX_HOME/log/codex-safe-git-audit.jsonl"}"
 PROTECTED_BRANCHES="${CODEX_SAFE_GIT_PROTECTED_BRANCHES:-}"
+TRUSTED_GIT_PATH="${CODEX_SAFE_GIT_GIT_PATH:-}"
 VERSION="$(awk '/const ServerVersion = / { gsub("\"", "", $4); print $4; exit }' "$SOURCE_DIR/internal/mcp/server.go" 2>/dev/null || true)"
 GO_BIN="${GO:-go}"
 ALLOW_EXTERNAL_INSTALL_DIR="${CODEX_SAFE_GIT_ALLOW_EXTERNAL_INSTALL_DIR:-0}"
@@ -34,6 +35,7 @@ Environment overrides:
   CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS   Default: \$CODEX_HOME/worktrees
   CODEX_SAFE_GIT_AUDIT_LOG            Default: \$CODEX_HOME/log/codex-safe-git-audit.jsonl
   CODEX_SAFE_GIT_PROTECTED_BRANCHES    Optional comma-separated extra protected branch names
+  CODEX_SAFE_GIT_GIT_PATH              Optional absolute trusted git executable path
   GO                                  Default: go
 EOF
 }
@@ -166,6 +168,11 @@ if has_parent_segment "$AUDIT_LOG"; then
   exit 1
 fi
 
+if [ -n "$TRUSTED_GIT_PATH" ] && has_parent_segment "$TRUSTED_GIT_PATH"; then
+  echo "Refusing unsafe git executable path: $TRUSTED_GIT_PATH" >&2
+  exit 1
+fi
+
 case "$INSTALL_DIR" in
   "/" | "$HOME" | "$CODEX_HOME")
     echo "Refusing unsafe install directory: $INSTALL_DIR" >&2
@@ -183,6 +190,13 @@ esac
 CODEX_HOME="$(canonical_path "$CODEX_HOME")"
 INSTALL_DIR="$(canonical_path "$INSTALL_DIR")"
 AUDIT_LOG="$(canonical_path "$AUDIT_LOG")"
+if [ -n "$TRUSTED_GIT_PATH" ]; then
+  TRUSTED_GIT_PATH="$(canonical_path "$TRUSTED_GIT_PATH")"
+  if [ "$(basename "$TRUSTED_GIT_PATH")" != "git" ] || [ ! -x "$TRUSTED_GIT_PATH" ]; then
+    echo "Refusing unsafe git executable path: $TRUSTED_GIT_PATH" >&2
+    exit 1
+  fi
+fi
 TOOLS_DIR="$CODEX_HOME/tools"
 if [ "$ALLOWED_ROOTS_WAS_DEFAULT" -eq 1 ]; then
   ALLOWED_ROOTS="$CODEX_HOME/worktrees"
@@ -222,6 +236,9 @@ EOF
   if [ -n "$PROTECTED_BRANCHES" ]; then
     printf 'CODEX_SAFE_GIT_PROTECTED_BRANCHES = "%s"\n' "$PROTECTED_BRANCHES"
   fi
+  if [ -n "$TRUSTED_GIT_PATH" ]; then
+    printf 'CODEX_SAFE_GIT_GIT_PATH = "%s"\n' "$TRUSTED_GIT_PATH"
+  fi
 }
 
 if [ "$PRINT_CONFIG" -eq 1 ]; then
@@ -246,6 +263,7 @@ Dry run: would install codex-safe-git $VERSION
   checksum:      $CHECKSUM_FILE
   allowed roots: $ALLOWED_ROOTS
   audit log:     $AUDIT_LOG
+  git path:      ${TRUSTED_GIT_PATH:-trusted PATH lookup}
   protected:     ${PROTECTED_BRANCHES:-main/master plus repo default only}
 
 MCP config that would be used:

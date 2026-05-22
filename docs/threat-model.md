@@ -40,7 +40,8 @@
 - Refuse default-branch mutations.
 - Refuse ambiguous states and pre-staged changes.
 - Disable hooks, signing, pager, editor, prompts, and credential helpers for Git subprocesses.
-- Validate the resolved `git` executable before use.
+- Validate the resolved `git` executable before use and prefer an explicit trusted
+  `CODEX_SAFE_GIT_GIT_PATH` when the operator cannot rely on the default trusted path set.
 - Stage exact requested files and verify the staged set.
 - Force literal Git pathspec handling and reject symlinked requested paths.
 - Require new worktree paths to be under configured allowed roots, non-existent, non-overlapping,
@@ -48,6 +49,7 @@
 - Redact worktree paths that are outside configured allowlists.
 - Bound read-only ref, history, path, submodule, integrity, reflog, and self-check outputs and omit
   patch text, blob contents, raw object dumps, and hidden allowlist paths.
+- Keep MCP read-only tools free of intentional audit-log writes or other local state changes.
 - Refuse checkout to protected branches, remote/ref/hash-like branch names, dirty worktrees, and
   branches already checked out elsewhere.
 - Refuse likely secret paths and likely secret material before staging, then rescan the staged diff

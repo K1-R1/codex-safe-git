@@ -97,6 +97,20 @@ func TestCommitFilesRefusesSymlinkWithoutCommittingTarget(t *testing.T) {
 	if !strings.Contains(status, "?? link.txt") || !strings.Contains(status, "?? target.txt") {
 		t.Fatalf("unexpected status after symlink refusal:\n%s", status)
 	}
+
+	outside := filepath.Join(repo.Root, "outside")
+	if err := os.Mkdir(outside, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(outside, "probe.txt"), []byte("outside\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, repo.Abs("linkdir")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.Policy.CommitFiles(repo.Path, []string{"linkdir/probe.txt"}, "Try symlink component", nil); !hasReason(err, "must not contain symlink components") {
+		t.Fatalf("expected symlink component refusal, got %v", err)
+	}
 }
 
 func TestCommitFilesTreatsPathspecMagicAsLiteral(t *testing.T) {
@@ -166,6 +180,31 @@ func TestSecretPathAndMaterialRefusals(t *testing.T) {
 	repo.Write("scanner.py", "LIKELY_SECRET = re.compile('placeholder')\n")
 	if _, err := repo.Policy.CommitFiles(repo.Path, []string{"scanner.py"}, "Add scanner source", nil); err != nil {
 		t.Fatalf("identifier-contained keyword should be allowed: %v", err)
+	}
+}
+
+func TestCommitFilesRefusesSecretMaterialInMessage(t *testing.T) {
+	repo := testrepo.New(t)
+	before := strings.TrimSpace(repo.Run("rev-parse", "HEAD"))
+	repo.Write("message.txt", "message\n")
+	messageSecret := strings.Join([]string{"api", "_key = ", strings.Repeat("x", 12)}, "")
+
+	if _, err := repo.Policy.CommitFiles(repo.Path, []string{"message.txt"}, messageSecret, nil); !hasReason(err, "commit message contains likely secret material") {
+		t.Fatalf("expected secret message refusal, got %v", err)
+	}
+	after := strings.TrimSpace(repo.Run("rev-parse", "HEAD"))
+	if before != after {
+		t.Fatalf("commit happened despite secret message refusal: before %s after %s", before, after)
+	}
+
+	body := strings.Join([]string{"token = ", strings.Repeat("y", 12)}, "")
+	if _, err := repo.Policy.CommitFiles(repo.Path, []string{"message.txt"}, "Add message file", &body); !hasReason(err, "commit message contains likely secret material") {
+		t.Fatalf("expected secret body refusal, got %v", err)
+	}
+
+	longSubject := strings.Repeat("a", gitpolicy.CommitMessageSubjectLimit+1)
+	if _, err := repo.Policy.CommitFiles(repo.Path, []string{"message.txt"}, longSubject, nil); !hasReason(err, "subject exceeds maximum") {
+		t.Fatalf("expected long subject refusal, got %v", err)
 	}
 }
 
@@ -798,7 +837,7 @@ func TestPathStatusRedactionIgnoreAndBounds(t *testing.T) {
 		t.Fatalf("expected ignored metadata, got %#v", ignored)
 	}
 	linkChild := pathStatusEntry(status.Entries, "linkdir/file.txt")
-	if linkChild == nil || !linkChild.HasSymlinkComponents {
+	if linkChild == nil || !linkChild.HasSymlinkComponents || linkChild.Exists {
 		t.Fatalf("expected symlink component metadata, got %#v", linkChild)
 	}
 	magic := pathStatusEntry(status.Entries, ":(glob)*.txt")
@@ -812,6 +851,32 @@ func TestPathStatusRedactionIgnoreAndBounds(t *testing.T) {
 	}
 	if _, err := repo.Policy.PathStatus(repo.Path, tooMany, nil); !hasReason(err, "too many requested paths") {
 		t.Fatalf("expected path limit refusal, got %v", err)
+	}
+}
+
+func TestPathStatusDoesNotFollowSymlinkComponents(t *testing.T) {
+	repo := testrepo.New(t)
+	outside := filepath.Join(repo.Root, "outside")
+	if err := os.Mkdir(outside, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(outside, "probe.txt"), []byte("outside\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, repo.Abs("linkout")); err != nil {
+		t.Fatal(err)
+	}
+
+	status, err := repo.Policy.PathStatus(repo.Path, []string{"linkout/probe.txt"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := pathStatusEntry(status.Entries, "linkout/probe.txt")
+	if entry == nil {
+		t.Fatalf("missing path status entry: %#v", status)
+	}
+	if !entry.HasSymlinkComponents || entry.Exists || entry.IsDir || entry.IsSymlink {
+		t.Fatalf("path_status followed symlink component: %#v", entry)
 	}
 }
 
@@ -839,6 +904,72 @@ func TestCommitSummaryBoundsAndSecretPathRedaction(t *testing.T) {
 		if path == ".env" {
 			t.Fatalf("secret path leaked in changed files: %#v", summary.Commit.ChangedFiles)
 		}
+	}
+}
+
+func TestReadOnlyToolsDoNotWriteAuditLog(t *testing.T) {
+	repo := testrepo.New(t)
+
+	if _, err := repo.Policy.GitStatus(repo.Path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.Policy.GitDiffSummary(repo.Path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.Policy.ListLocalBranches(repo.Path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.Policy.PathStatus(repo.Path, []string{"README.md"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.Policy.RepositoryIntegrityCheck(repo.Path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.Policy.SelfCheck(repo.Path, "test-version", "test-protocol", []string{"git_status"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(repo.AuditLog); !os.IsNotExist(err) {
+		t.Fatalf("read-only tools should not write audit log, stat error: %v", err)
+	}
+}
+
+func TestReadOnlyRefsSupportSHA256ObjectFormat(t *testing.T) {
+	t.Setenv("GIT_DEFAULT_HASH", "sha256")
+	repo := testrepo.New(t)
+	workHead := strings.TrimSpace(repo.Run("rev-parse", "HEAD"))
+	if len(workHead) != 64 {
+		t.Skip("git did not create a SHA-256 test repository")
+	}
+	repo.Run("switch", "-c", "codex/sha256-topic")
+	repo.Write("sha256.txt", "sha256\n")
+	if _, err := repo.Policy.CommitFiles(repo.Path, []string{"sha256.txt"}, "Add sha256 file", nil); err != nil {
+		t.Fatal(err)
+	}
+	topicHead := strings.TrimSpace(repo.Run("rev-parse", "HEAD"))
+	repo.Run("switch", "work")
+
+	base, err := repo.Policy.MergeBase(repo.Path, workHead, topicHead)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if base.MergeBase != workHead || len(base.LeftCommit) != 64 || len(base.RightCommit) != 64 {
+		t.Fatalf("unexpected SHA-256 merge-base result: %#v", base)
+	}
+
+	compare, err := repo.Policy.CompareRefs(repo.Path, "work", topicHead)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if compare.TargetCommit != topicHead || compare.AheadCount != 1 {
+		t.Fatalf("unexpected SHA-256 compare result: %#v", compare)
+	}
+
+	show, err := repo.Policy.ShowCommitSummary(repo.Path, topicHead)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if show.Commit.Hash != topicHead || strings.Join(show.Commit.ChangedFiles, ",") != "sha256.txt" {
+		t.Fatalf("unexpected SHA-256 commit summary: %#v", show)
 	}
 }
 

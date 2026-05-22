@@ -63,9 +63,15 @@ Tools also expose MCP `annotations` and concise per-tool `outputSchema` definiti
 `tools/list`, so clients can distinguish read-only inspection from local Git mutations and validate
 `structuredContent` without reading this repository's docs.
 
+Tools marked with MCP `readOnlyHint: true` avoid intentional local state changes, including audit-log
+writes. Mutating tools remain audited and fail closed when the audit log is unavailable.
+
 Status, diff, untracked, and worktree arrays are bounded. Result payloads include the full visible
 count, limit, and truncation flag next to each bounded array. Secret-bearing paths and unallowlisted
 worktrees are counted separately and still redacted before truncation.
+
+Git subprocess stdout and stderr capture is hard-bounded before tool-level parsing. If Git exceeds
+that bound, the tool fails closed instead of interpreting or returning partial command output.
 
 All refusals return:
 

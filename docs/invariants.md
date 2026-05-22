@@ -30,8 +30,12 @@ The Go implementation is the canonical `codex-safe-git` safety model.
 - Ref, history, path, submodule, integrity, reflog, and self-check payloads are bounded structured
   summaries and do not include patch text, blob contents, raw object dumps, remote state, or hidden
   allowlist paths.
+- Git subprocess stdout and stderr capture is hard-bounded before higher-level parsing, and oversized
+  command output fails closed instead of being partially interpreted.
+- MCP read-only tools do not write audit records or other intentional local state.
 - Git is invoked with fixed arguments only.
 - Hooks, prompts, pagers, credential helpers, editors, and GPG signing are disabled.
+- `git` is resolved from trusted install locations or an explicit absolute `CODEX_SAFE_GIT_GIT_PATH`.
 - System and global Git config are ignored by Git subprocesses; repository-local config is still
   inspected for execution-capable settings.
 - Branch names must be safe local branches, not refs, remotes, commit hashes, paths, or lock names.

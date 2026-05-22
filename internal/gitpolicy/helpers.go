@@ -29,12 +29,13 @@ type rawWorktree struct {
 	IsPrunable bool
 }
 
+const (
+	CommitMessageSubjectLimit = 300
+	CommitMessageBodyLimit    = 4000
+)
+
 func refuse(reason string) Refusal {
 	return Refusal{Reason: reason}
-}
-
-func (p Policy) auditRefusal(action, repo string, err error) {
-	p.Audit.WriteAuditCompat(action, repo, err)
 }
 
 func (p Policy) requireAuditWritable() error {
@@ -372,6 +373,13 @@ func (p Policy) normaliseFiles(repo string, files []string) ([]string, error) {
 		if secretcheck.IsSecretPath(rel) {
 			return nil, refuse("refusing secret-bearing path: " + rel)
 		}
+		hasSymlinkPrefix, err := pathPrefixContainsSymlink(repo, rel)
+		if err != nil {
+			return nil, err
+		}
+		if hasSymlinkPrefix {
+			return nil, refuse("requested path must not contain symlink components: " + rel)
+		}
 		info, lstatErr := os.Lstat(filePath)
 		if lstatErr == nil {
 			if info.Mode()&os.ModeSymlink != 0 {
@@ -379,13 +387,6 @@ func (p Policy) normaliseFiles(repo string, files []string) ([]string, error) {
 			}
 			if !info.Mode().IsRegular() {
 				return nil, refuse("requested path must be a regular file: " + rel)
-			}
-			hasSymlink, err := pathContainsSymlink(repo, rel)
-			if err != nil {
-				return nil, err
-			}
-			if hasSymlink {
-				return nil, refuse("requested path must not contain symlink components: " + rel)
 			}
 		} else if errors.Is(lstatErr, os.ErrNotExist) {
 			tracked, err := p.tracked(repo, rel)
@@ -407,12 +408,23 @@ func rejectAttribution(message string, body *string) error {
 	if strings.TrimSpace(message) == "" {
 		return refuse("commit message subject is empty")
 	}
+	if len(message) > CommitMessageSubjectLimit {
+		return refuse(fmt.Sprintf("commit message subject exceeds maximum %d", CommitMessageSubjectLimit))
+	}
+	if body != nil && len(*body) > CommitMessageBodyLimit {
+		return refuse(fmt.Sprintf("commit message body exceeds maximum %d", CommitMessageBodyLimit))
+	}
 	text := message
 	if body != nil && *body != "" {
 		text += "\n" + *body
 	}
 	if strings.ContainsRune(text, '\x00') {
 		return refuse("commit message contains NUL")
+	}
+	for _, line := range strings.Split(text, "\n") {
+		if secretcheck.ContainsLikelySecret(line) {
+			return refuse("commit message contains likely secret material")
+		}
 	}
 	if aiAttributionPattern.MatchString(text) {
 		return refuse("commit message contains AI/tool attribution")
@@ -627,21 +639,6 @@ func hasSecretPathComponent(path string) bool {
 		}
 	}
 	return false
-}
-
-func pathContainsSymlink(repo, rel string) (bool, error) {
-	current := repo
-	for _, part := range strings.Split(filepath.FromSlash(rel), string(filepath.Separator)) {
-		current = filepath.Join(current, part)
-		info, err := os.Lstat(current)
-		if err != nil {
-			return false, err
-		}
-		if info.Mode()&os.ModeSymlink != 0 {
-			return true, nil
-		}
-	}
-	return false, nil
 }
 
 func (p Policy) stagedFiles(repo string) ([]string, error) {

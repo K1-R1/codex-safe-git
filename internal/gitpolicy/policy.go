@@ -12,7 +12,7 @@ import (
 
 var (
 	aiAttributionPattern = regexp.MustCompile(`(?i)(generated[- ]?by\s+(codex|chatgpt|openai)|co-authored-by:.*\b(codex|chatgpt|openai)\b|\b(via|with|using)\s+(codex|chatgpt|openai)\b|\b(codex|chatgpt|openai)\s+(generated|assisted|authored)\b)`)
-	hexBranchPattern     = regexp.MustCompile(`^[0-9a-fA-F]{7,40}$`)
+	hexBranchPattern     = regexp.MustCompile(`^[0-9a-fA-F]{7,64}$`)
 	executionConfigRE    = regexp.MustCompile(`^(filter\..*\.(clean|process|smudge)|diff\..*\.(command|textconv)|core\.fsmonitor)$`)
 )
 
@@ -37,29 +37,16 @@ func New(cfg config.Config) (Policy, error) {
 func (p Policy) GitStatus(repoPath string) (StatusResult, error) {
 	repo, err := p.resolveAllowedRepo(repoPath)
 	if err != nil {
-		p.auditRefusal("git_status", repoPath, err)
 		return StatusResult{}, err
 	}
 	if err := p.requireGitRepo(repo); err != nil {
-		p.auditRefusal("git_status", repoPath, err)
 		return StatusResult{}, err
 	}
 	if err := p.requireNoExecutionConfig(repo); err != nil {
-		p.auditRefusal("git_status", repoPath, err)
 		return StatusResult{}, err
 	}
 	result, err := p.status(repo)
 	if err != nil {
-		p.auditRefusal("git_status", repoPath, err)
-		return StatusResult{}, err
-	}
-	if err := p.auditSuccess(audit.Entry{
-		Action:                  "git_status",
-		Result:                  "ok",
-		Repo:                    repo,
-		FileCount:               audit.IntPtr(len(result.Entries)),
-		RedactedSecretPathCount: audit.IntPtr(result.RedactedSecretPathCount),
-	}); err != nil {
 		return StatusResult{}, err
 	}
 	return result, nil
@@ -68,51 +55,32 @@ func (p Policy) GitStatus(repoPath string) (StatusResult, error) {
 func (p Policy) GitDiffSummary(repoPath string) (DiffSummaryResult, error) {
 	repo, err := p.resolveAllowedRepo(repoPath)
 	if err != nil {
-		p.auditRefusal("git_diff_summary", repoPath, err)
 		return DiffSummaryResult{}, err
 	}
 	if err := p.requireGitRepo(repo); err != nil {
-		p.auditRefusal("git_diff_summary", repoPath, err)
 		return DiffSummaryResult{}, err
 	}
 	if err := p.requireNoExecutionConfig(repo); err != nil {
-		p.auditRefusal("git_diff_summary", repoPath, err)
 		return DiffSummaryResult{}, err
 	}
 	state, err := p.repoState(repo)
 	if err != nil {
-		p.auditRefusal("git_diff_summary", repoPath, err)
 		return DiffSummaryResult{}, err
 	}
 	if len(state.AmbiguousReasons) > 0 {
 		err := refuse("repository has ambiguous state: " + strings.Join(state.AmbiguousReasons, ", "))
-		p.auditRefusal("git_diff_summary", repoPath, err)
 		return DiffSummaryResult{}, err
 	}
 	unstaged, err := p.numstat(repo, []string{"diff", "--no-ext-diff", "--numstat", "-z"})
 	if err != nil {
-		p.auditRefusal("git_diff_summary", repoPath, err)
 		return DiffSummaryResult{}, err
 	}
 	staged, err := p.numstat(repo, []string{"diff", "--cached", "--no-ext-diff", "--numstat", "-z"})
 	if err != nil {
-		p.auditRefusal("git_diff_summary", repoPath, err)
 		return DiffSummaryResult{}, err
 	}
 	untracked, err := p.safeUntracked(repo)
 	if err != nil {
-		p.auditRefusal("git_diff_summary", repoPath, err)
-		return DiffSummaryResult{}, err
-	}
-	total := len(unstaged.Files) + len(staged.Files) + len(untracked.Files)
-	redacted := unstaged.RedactedSecretPathCount + staged.RedactedSecretPathCount + untracked.RedactedSecretPathCount
-	if err := p.auditSuccess(audit.Entry{
-		Action:                  "git_diff_summary",
-		Result:                  "ok",
-		Repo:                    repo,
-		FileCount:               audit.IntPtr(total),
-		RedactedSecretPathCount: audit.IntPtr(redacted),
-	}); err != nil {
 		return DiffSummaryResult{}, err
 	}
 	return DiffSummaryResult{Result: "ok", Repo: repo, Unstaged: unstaged, Staged: staged, Untracked: untracked}, nil
@@ -278,20 +246,16 @@ func (p Policy) MergeBranch(repoPath, sourceBranch string, targetBranch *string)
 func (p Policy) ListWorktrees(repoPath string) (ListWorktreesResult, error) {
 	repo, err := p.resolveAllowedRepo(repoPath)
 	if err != nil {
-		p.auditRefusal("list_worktrees", repoPath, err)
 		return ListWorktreesResult{}, err
 	}
 	if err := p.requireGitRepo(repo); err != nil {
-		p.auditRefusal("list_worktrees", repoPath, err)
 		return ListWorktreesResult{}, err
 	}
 	if err := p.requireNoExecutionConfig(repo); err != nil {
-		p.auditRefusal("list_worktrees", repoPath, err)
 		return ListWorktreesResult{}, err
 	}
 	worktrees, err := p.worktrees(repo)
 	if err != nil {
-		p.auditRefusal("list_worktrees", repoPath, err)
 		return ListWorktreesResult{}, err
 	}
 	visible := make([]WorktreeEntry, 0, len(worktrees))
@@ -315,15 +279,6 @@ func (p Policy) ListWorktrees(repoPath string) (ListWorktreesResult, error) {
 	sort.Slice(visible, func(i, j int) bool { return visible[i].Path < visible[j].Path })
 	worktreeCount := len(visible)
 	visible, truncated := limitedSlice(visible, WorktreeLimit)
-	if err := p.auditSuccess(audit.Entry{
-		Action:                     "list_worktrees",
-		Result:                     "ok",
-		Repo:                       repo,
-		FileCount:                  audit.IntPtr(worktreeCount),
-		RedactedUnallowlistedCount: audit.IntPtr(redacted),
-	}); err != nil {
-		return ListWorktreesResult{}, err
-	}
 	return ListWorktreesResult{
 		Result:                     "ok",
 		Repo:                       repo,

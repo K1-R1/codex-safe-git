@@ -9,3 +9,5 @@ CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS = "/Users/you/.codex/worktrees:/Users/you/proj
 CODEX_SAFE_GIT_AUDIT_LOG = "/Users/you/.codex/log/codex-safe-git-audit.jsonl"
 # Optional extra local protected branches beyond built-in main/master and repo init.defaultBranch.
 CODEX_SAFE_GIT_PROTECTED_BRANCHES = "trunk,develop"
+# Optional absolute trusted git executable path when PATH lookup is too broad for your environment.
+CODEX_SAFE_GIT_GIT_PATH = "/usr/bin/git"

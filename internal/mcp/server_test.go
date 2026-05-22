@@ -99,6 +99,10 @@ func TestToolDefinitionsExposeAnnotationsAndOutputSchemas(t *testing.T) {
 			if int(files["maxItems"].(float64)) != gitpolicy.CommitFileLimit {
 				t.Fatalf("commit_files maxItems does not match policy limit: %#v", files)
 			}
+			message, _ := properties["message"].(map[string]any)
+			if int(message["maxLength"].(float64)) != gitpolicy.CommitMessageSubjectLimit {
+				t.Fatalf("commit_files message maxLength does not match policy limit: %#v", message)
+			}
 		}
 	}
 	for _, name := range []string{"git_status", "git_diff_summary", "commit_files", "list_worktrees"} {
