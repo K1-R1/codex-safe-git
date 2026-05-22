@@ -120,6 +120,18 @@ has_parent_segment() {
   [[ "$path" == ".." || "$path" == "../"* || "$path" == *"/.." || "$path" == *"/../"* ]]
 }
 
+toml_string() {
+  local value="$1"
+  value=${value//\\/\\\\}
+  value=${value//\"/\\\"}
+  value=${value//$'\b'/\\b}
+  value=${value//$'\t'/\\t}
+  value=${value//$'\n'/\\n}
+  value=${value//$'\f'/\\f}
+  value=${value//$'\r'/\\r}
+  printf '"%s"' "$value"
+}
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --dry-run)
@@ -224,20 +236,20 @@ esac
 print_config() {
   cat <<EOF
 [mcp_servers.codex_safe_git]
-command = "$INSTALL_DIR/bin/codex-safe-git-mcp"
+command = $(toml_string "$INSTALL_DIR/bin/codex-safe-git-mcp")
 enabled_tools = ["git_status", "git_diff_summary", "list_local_branches", "compare_refs", "commit_log_summary", "show_commit_summary", "list_local_refs", "merge_base", "changed_files_between_refs", "path_status", "submodule_summary", "repository_integrity_check", "reflog_summary", "self_check", "commit_files", "ensure_commit_branch", "create_commit_branch", "merge_branch", "list_worktrees", "create_worktree", "safe_checkout"]
 default_tools_approval_mode = "approve"
 enabled = true
 
 [mcp_servers.codex_safe_git.env]
-CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS = "$ALLOWED_ROOTS"
-CODEX_SAFE_GIT_AUDIT_LOG = "$AUDIT_LOG"
+CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS = $(toml_string "$ALLOWED_ROOTS")
+CODEX_SAFE_GIT_AUDIT_LOG = $(toml_string "$AUDIT_LOG")
 EOF
   if [ -n "$PROTECTED_BRANCHES" ]; then
-    printf 'CODEX_SAFE_GIT_PROTECTED_BRANCHES = "%s"\n' "$PROTECTED_BRANCHES"
+    printf 'CODEX_SAFE_GIT_PROTECTED_BRANCHES = %s\n' "$(toml_string "$PROTECTED_BRANCHES")"
   fi
   if [ -n "$TRUSTED_GIT_PATH" ]; then
-    printf 'CODEX_SAFE_GIT_GIT_PATH = "%s"\n' "$TRUSTED_GIT_PATH"
+    printf 'CODEX_SAFE_GIT_GIT_PATH = %s\n' "$(toml_string "$TRUSTED_GIT_PATH")"
   fi
 }
 

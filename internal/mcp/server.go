@@ -13,7 +13,8 @@ import (
 )
 
 const ProtocolVersion = "2025-11-25"
-const ServerVersion = "0.4.1"
+const ServerVersion = "0.4.2"
+const maxJSONRPCLineBytes = 1024 * 1024
 
 type Server struct {
 	Policy *gitpolicy.Policy
@@ -120,29 +121,94 @@ type createWorktreeArgs struct {
 
 func Main(stdin io.Reader, stdout io.Writer) int {
 	server := Server{}
-	scanner := bufio.NewScanner(stdin)
+	reader := bufio.NewReaderSize(stdin, 64*1024)
 	writer := bufio.NewWriter(stdout)
 	defer writer.Flush()
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		if len(line) == 0 {
+	for {
+		line, tooLarge, err := readBoundedLine(reader, maxJSONRPCLineBytes)
+		if tooLarge {
+			writeResponse(writer, &response{JSONRPC: "2.0", ID: nil, Error: &errorObject{Code: -32700, Message: "Parse error: request exceeds maximum size"}})
+			if err == io.EOF {
+				return 0
+			}
+			if err != nil {
+				return 1
+			}
+			continue
+		}
+		if err == io.EOF && len(line) == 0 {
+			return 0
+		}
+		if err != nil && err != io.EOF {
+			return 1
+		}
+		if len(bytes.TrimSpace(line)) == 0 {
+			if err == io.EOF {
+				return 0
+			}
 			continue
 		}
 		reply := server.Handle(line)
-		if reply == nil {
-			continue
+		if reply != nil {
+			writeResponse(writer, reply)
 		}
-		encoded, err := json.Marshal(reply)
-		if err != nil {
-			continue
+		if err == io.EOF {
+			return 0
 		}
-		_, _ = writer.Write(append(encoded, '\n'))
-		_ = writer.Flush()
 	}
-	if scanner.Err() != nil {
-		return 1
+}
+
+func readBoundedLine(reader *bufio.Reader, limit int) ([]byte, bool, error) {
+	var line []byte
+	for {
+		chunk, err := reader.ReadSlice('\n')
+		if len(line)+len(chunk) > limit {
+			drainErr := drainLine(reader, err)
+			return nil, true, drainErr
+		}
+		line = append(line, chunk...)
+		switch err {
+		case nil:
+			return line, false, nil
+		case bufio.ErrBufferFull:
+			continue
+		case io.EOF:
+			return line, false, io.EOF
+		default:
+			return nil, false, err
+		}
 	}
-	return 0
+}
+
+func drainLine(reader *bufio.Reader, currentErr error) error {
+	if currentErr == nil || currentErr == io.EOF {
+		return currentErr
+	}
+	if currentErr != bufio.ErrBufferFull {
+		return currentErr
+	}
+	for {
+		_, err := reader.ReadSlice('\n')
+		switch err {
+		case nil:
+			return nil
+		case bufio.ErrBufferFull:
+			continue
+		case io.EOF:
+			return io.EOF
+		default:
+			return err
+		}
+	}
+}
+
+func writeResponse(writer *bufio.Writer, reply *response) {
+	encoded, err := json.Marshal(reply)
+	if err != nil {
+		return
+	}
+	_, _ = writer.Write(append(encoded, '\n'))
+	_ = writer.Flush()
 }
 
 func (s Server) Handle(raw []byte) *response {

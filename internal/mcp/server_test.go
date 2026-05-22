@@ -73,22 +73,61 @@ func TestToolDefinitionsExposeAnnotationsAndOutputSchemas(t *testing.T) {
 	}
 	marshalRoundTrip(t, resp, &raw)
 
+	expectedRequired := map[string][]string{
+		"git_status":                 {"repo_path"},
+		"git_diff_summary":           {"repo_path"},
+		"list_local_branches":        {"repo_path"},
+		"compare_refs":               {"repo_path", "base_ref", "target_ref"},
+		"commit_log_summary":         {"repo_path"},
+		"show_commit_summary":        {"repo_path", "commit_ref"},
+		"list_local_refs":            {"repo_path"},
+		"merge_base":                 {"repo_path", "left_ref", "right_ref"},
+		"changed_files_between_refs": {"repo_path", "base_ref", "target_ref"},
+		"path_status":                {"repo_path", "paths"},
+		"submodule_summary":          {"repo_path"},
+		"repository_integrity_check": {"repo_path"},
+		"reflog_summary":             {"repo_path"},
+		"self_check":                 {"repo_path"},
+		"commit_files":               {"repo_path", "files", "message"},
+		"ensure_commit_branch":       {"repo_path", "branch_name"},
+		"create_commit_branch":       {"repo_path", "branch_name"},
+		"merge_branch":               {"repo_path", "source_branch"},
+		"list_worktrees":             {"repo_path"},
+		"create_worktree":            {"repo_path", "worktree_path", "branch_name"},
+		"safe_checkout":              {"repo_path", "branch_name"},
+	}
+	readOnlyTools := map[string]struct{}{
+		"git_status": {}, "git_diff_summary": {}, "list_local_branches": {}, "compare_refs": {},
+		"commit_log_summary": {}, "show_commit_summary": {}, "list_local_refs": {}, "merge_base": {},
+		"changed_files_between_refs": {}, "path_status": {}, "submodule_summary": {},
+		"repository_integrity_check": {}, "reflog_summary": {}, "self_check": {}, "list_worktrees": {},
+	}
+
 	seen := map[string]struct{}{}
 	for _, tool := range raw.Result.Tools {
 		seen[tool.Name] = struct{}{}
+		if tool.InputSchema["type"] != "object" || tool.InputSchema["additionalProperties"] != false {
+			t.Fatalf("%s has unsafe input schema: %#v", tool.Name, tool.InputSchema)
+		}
+		required, ok := tool.InputSchema["required"].([]any)
+		if !ok {
+			t.Fatalf("%s missing required inputs: %#v", tool.Name, tool.InputSchema)
+		}
+		if !sameStringMembers(anyStrings(required), expectedRequired[tool.Name]) {
+			t.Fatalf("%s required inputs mismatch: got %#v want %#v", tool.Name, anyStrings(required), expectedRequired[tool.Name])
+		}
 		if tool.OutputSchema["type"] != "object" {
 			t.Fatalf("%s missing object outputSchema: %#v", tool.Name, tool.OutputSchema)
+		}
+		if _, ok := tool.OutputSchema["required"].([]any); !ok {
+			t.Fatalf("%s missing outputSchema required fields: %#v", tool.Name, tool.OutputSchema)
 		}
 		if tool.Annotations["openWorldHint"] != false || tool.Annotations["destructiveHint"] != false {
 			t.Fatalf("%s has unsafe annotations: %#v", tool.Name, tool.Annotations)
 		}
-		if tool.Name == "git_status" && tool.Annotations["readOnlyHint"] != true {
-			t.Fatalf("git_status should be read-only: %#v", tool.Annotations)
-		}
-		for _, readOnlyName := range []string{"list_local_branches", "compare_refs", "commit_log_summary", "show_commit_summary", "list_local_refs", "merge_base", "changed_files_between_refs", "path_status", "submodule_summary", "repository_integrity_check", "reflog_summary", "self_check"} {
-			if tool.Name == readOnlyName && tool.Annotations["readOnlyHint"] != true {
-				t.Fatalf("%s should be read-only: %#v", tool.Name, tool.Annotations)
-			}
+		_, readOnly := readOnlyTools[tool.Name]
+		if tool.Annotations["readOnlyHint"] != readOnly {
+			t.Fatalf("%s readOnlyHint mismatch: %#v", tool.Name, tool.Annotations)
 		}
 		if tool.Name == "commit_files" {
 			if tool.Annotations["readOnlyHint"] != false {
@@ -105,7 +144,10 @@ func TestToolDefinitionsExposeAnnotationsAndOutputSchemas(t *testing.T) {
 			}
 		}
 	}
-	for _, name := range []string{"git_status", "git_diff_summary", "commit_files", "list_worktrees"} {
+	if len(seen) != len(expectedRequired) {
+		t.Fatalf("tool count mismatch: got %d want %d", len(seen), len(expectedRequired))
+	}
+	for name := range expectedRequired {
 		if _, ok := seen[name]; !ok {
 			t.Fatalf("missing tool %s", name)
 		}
@@ -280,6 +322,45 @@ func TestStdioServerRoundTrip(t *testing.T) {
 	}
 }
 
+func TestStdioServerRejectsOversizedAndMalformedRequestsThenRecovers(t *testing.T) {
+	repo := testrepo.New(t)
+	t.Setenv("CODEX_SAFE_GIT_ALLOWED_REPOS", repo.Path)
+	t.Setenv("CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS", "")
+	t.Setenv("CODEX_SAFE_GIT_AUDIT_LOG", repo.AuditLog)
+
+	valid := `{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"git_status","arguments":{"repo_path":` + quote(repo.Path) + `}}}`
+	input := strings.Repeat("x", 2*1024*1024) + "\n" + "{bad json}\n" + valid + "\n"
+
+	var output bytes.Buffer
+	if code := mcp.Main(strings.NewReader(input), &output); code != 0 {
+		t.Fatalf("server returned non-zero exit code %d", code)
+	}
+	lines := strings.Split(strings.TrimSpace(output.String()), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("expected three responses, got %d: %s", len(lines), output.String())
+	}
+	var oversized, malformed responseEnvelope
+	if err := json.Unmarshal([]byte(lines[0]), &oversized); err != nil {
+		t.Fatal(err)
+	}
+	if oversized.Error == nil || !strings.Contains(oversized.Error.Message, "maximum size") {
+		t.Fatalf("expected oversized parse error, got %#v", oversized)
+	}
+	if err := json.Unmarshal([]byte(lines[1]), &malformed); err != nil {
+		t.Fatal(err)
+	}
+	if malformed.Error == nil || malformed.Error.Code != -32700 {
+		t.Fatalf("expected malformed parse error, got %#v", malformed)
+	}
+	var status toolCallResponse
+	if err := json.Unmarshal([]byte(lines[2]), &status); err != nil {
+		t.Fatal(err)
+	}
+	if status.Result.IsError || status.Result.StructuredContent["result"] != "ok" {
+		t.Fatalf("expected recovery status response, got %#v", status.Result)
+	}
+}
+
 func TestInstallerRefusesCanonicalParentInstallPath(t *testing.T) {
 	codexHome := filepath.Join(t.TempDir(), ".codex")
 	if err := os.MkdirAll(filepath.Join(codexHome, "tools"), 0o755); err != nil {
@@ -300,6 +381,26 @@ func TestInstallerRefusesCanonicalParentInstallPath(t *testing.T) {
 	}
 }
 
+func TestInstallerPrintConfigEscapesTomlStrings(t *testing.T) {
+	codexHome := filepath.Join(t.TempDir(), `codex "home\dir`)
+	script := filepath.Join("..", "..", "scripts", "install-local.sh")
+	cmd := exec.Command("bash", script, "--print-config")
+	cmd.Env = append(os.Environ(),
+		"CODEX_HOME="+codexHome,
+		`CODEX_SAFE_GIT_PROTECTED_BRANCHES=release/"quoted"`+"\tbranch",
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("print config failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	for _, want := range []string{`codex \"home\\dir`, `release/\"quoted\"\tbranch`} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("expected escaped TOML fragment %q in:\n%s", want, text)
+		}
+	}
+}
+
 type toolCallResponse struct {
 	Result struct {
 		Content []struct {
@@ -309,6 +410,31 @@ type toolCallResponse struct {
 		StructuredContent map[string]any `json:"structuredContent"`
 		IsError           bool           `json:"isError"`
 	} `json:"result"`
+}
+
+type responseEnvelope struct {
+	Error *struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
+func anyStrings(values []any) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if text, ok := value.(string); ok {
+			result = append(result, text)
+		}
+	}
+	return result
+}
+
+func sameStringMembers(left, right []string) bool {
+	leftCopy := append([]string(nil), left...)
+	rightCopy := append([]string(nil), right...)
+	sort.Strings(leftCopy)
+	sort.Strings(rightCopy)
+	return strings.Join(leftCopy, "\x00") == strings.Join(rightCopy, "\x00")
 }
 
 func marshalRoundTrip(t *testing.T, in any, out any) {
