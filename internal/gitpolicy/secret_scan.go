@@ -18,7 +18,9 @@ func (p Policy) rejectLikelySecretMaterial(repo string, rels []string) error {
 			return err
 		}
 		if _, statErr := os.Stat(path); statErr == nil && !tracked {
-			return rejectLikelySecretMaterialInFile(path, rel)
+			if err := rejectLikelySecretMaterialInFile(path, rel); err != nil {
+				return err
+			}
 		} else {
 			diff, err := p.Git.Run(repo, "diff", "--no-ext-diff", "--unified=0", "--", rel)
 			if err != nil {

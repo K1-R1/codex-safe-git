@@ -207,6 +207,13 @@ func TestCommitFilesSecretScanBoundsUntrackedFiles(t *testing.T) {
 	if _, err := secretRepo.Policy.CommitFiles(secretRepo.Path, []string{"late-secret.txt"}, "Add late secret", nil); !hasReason(err, "secret material") {
 		t.Fatalf("expected late secret refusal, got %v", err)
 	}
+
+	multiRepo := testrepo.New(t)
+	multiRepo.Write("safe-first.txt", "safe\n")
+	multiRepo.Write("secret-second.txt", strings.Join([]string{"api", "_key = abcdefghijklmnop\n"}, ""))
+	if _, err := multiRepo.Policy.CommitFiles(multiRepo.Path, []string{"safe-first.txt", "secret-second.txt"}, "Add multiple files", nil); !hasReason(err, "secret material") {
+		t.Fatalf("expected second file secret refusal, got %v", err)
+	}
 }
 
 func TestCommitFilesRefusesUnsafePathSyntax(t *testing.T) {
