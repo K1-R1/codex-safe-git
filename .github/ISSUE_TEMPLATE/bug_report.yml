@@ -31,7 +31,7 @@ body:
     attributes:
       label: codex-safe-git version
       description: Use `self_check` or `scripts/install-local.sh --version` when available.
-      placeholder: "0.4.2"
+      placeholder: "0.4.3"
     validations:
       required: false
   - type: input

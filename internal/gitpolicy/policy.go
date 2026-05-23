@@ -442,15 +442,15 @@ func (p Policy) CommitFiles(repoPath string, files []string, message string, bod
 	}
 	repo, err := p.resolveAllowedRepo(repoPath)
 	if err == nil {
-		var requested []string
-		requested, err = p.normaliseFiles(repo, fileList)
-		fileList = requested
-	}
-	if err == nil {
 		err = p.requireGitRepo(repo)
 	}
 	if err == nil {
 		err = p.requireNoExecutionConfig(repo)
+	}
+	if err == nil {
+		var requested []string
+		requested, err = p.normaliseFiles(repo, fileList)
+		fileList = requested
 	}
 	var state repoState
 	if err == nil {

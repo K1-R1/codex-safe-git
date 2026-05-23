@@ -6,7 +6,7 @@ This project ships source-first Go command releases. The public install contract
 go install github.com/K1-R1/codex-safe-git/cmd/codex-safe-git-mcp@vX.Y.Z
 ```
 
-Release tags must be semantic versions such as `v0.4.2`, and the tag should match
+Release tags must be semantic versions such as `v0.4.3`, and the tag should match
 `internal/mcp/server.go` unless the release contains only documentation or repository setup changes.
 
 ## Release Policy
@@ -46,8 +46,8 @@ scripts/smoke-public-install.sh "$(git rev-parse origin/main)"
 Create the release tag on the exact commit that passed verification:
 
 ```sh
-git tag -a v0.4.2 -m "codex-safe-git v0.4.2"
-git push origin v0.4.2
+git tag -a v0.4.3 -m "codex-safe-git v0.4.3"
+git push origin v0.4.3
 ```
 
 If maintainer signing is already configured, use `git tag -s` instead of `git tag -a`.
@@ -60,11 +60,11 @@ enabled, create a draft first, attach assets, and publish only after the draft i
 After publishing, verify the user-facing install path:
 
 ```sh
-scripts/smoke-public-install.sh v0.4.2
+scripts/smoke-public-install.sh v0.4.3
 ```
 
 If the Go module proxy has not observed the new tag yet, retry after a short delay. For maintainer
-validation only, `GOPROXY=direct scripts/smoke-public-install.sh v0.4.2` can confirm the tag before
+validation only, `GOPROXY=direct scripts/smoke-public-install.sh v0.4.3` can confirm the tag before
 the public proxy catches up.
 
 ## Security Releases
