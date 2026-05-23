@@ -1,7 +1,7 @@
 # Distribution
 
-This project should be distributed as a Go command first, with source-tree installation kept for
-maintainers and contributors.
+This project is distributed as a Go command first, with source-tree installation kept for maintainers
+and contributors.
 
 ## Recommended Public Install
 
@@ -19,8 +19,8 @@ go install github.com/K1-R1/codex-safe-git/cmd/codex-safe-git-mcp@v0.4.2
 
 `go install ...@version` is the right default for a dependency-free Go command because it builds the
 published module directly and does not require users to clone the repository or run an installer
-script from the internet. Before the first release tag exists, `@latest` may resolve to a Go
-pseudo-version from the default branch; release-grade installs should use a semver tag.
+script from the internet. In forks or pre-release checkouts without tags, `@latest` may resolve to a
+Go pseudo-version from the default branch; release-grade installs should use a semver tag.
 
 The installed command is written to `GOBIN` when set, otherwise to `$(go env GOPATH)/bin`. If that
 directory is not on `PATH`, run the command by absolute path:
@@ -51,7 +51,7 @@ scripts/smoke-public-install.sh v0.4.2
 ## Source-Tree Install
 
 Use source-tree installation when developing this repository, validating a release candidate, or
-installing from a private checkout before a public release tag is available:
+installing from a checkout before the needed public release tag is available:
 
 ```sh
 git clone https://github.com/K1-R1/codex-safe-git
@@ -64,15 +64,15 @@ scripts/install-local.sh --verify-install
 The source installer builds a stable binary under `~/.codex/tools/codex-safe-git-go`, writes a
 sidecar checksum, creates the default `~/.codex/worktrees` root, and prints the Codex MCP config.
 
-## Not Recommended Initially
+## Deferred Distribution
 
-Do not use a `curl | sh` installer for the initial public release. This tool exists to narrow Codex's
+Do not use a `curl | sh` installer. This tool exists to narrow Codex's
 local Git mutation surface, so asking users to pipe a remote shell script into `sh` would send the
 wrong trust signal. A reviewed source checkout or `go install ...@version` is clearer and easier to
 audit.
 
-Do not publish package-manager distribution in the initial release. Homebrew can be added later via a
-separate tap if there is real demand, but it adds another repository, formula review surface, and
+Do not publish package-manager distribution yet. Homebrew can be added later through a separate tap
+if there is real demand, but it adds another repository, formula review surface, and
 release automation to maintain.
 
 Do not publish binary GitHub Release assets until signing, checksums, provenance, and support policy

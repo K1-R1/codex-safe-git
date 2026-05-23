@@ -20,3 +20,7 @@ This project expects respectful, constructive collaboration.
 
 Maintainers may remove comments, close issues, block participants, or decline contributions that
 make the project unsafe or hostile.
+
+For urgent platform abuse, use GitHub's abuse reporting tools. For project-specific conduct concerns,
+contact the maintainer privately if a private channel is available. Do not put sensitive conduct
+reports, personal information, secrets, or vulnerability details in public issues.

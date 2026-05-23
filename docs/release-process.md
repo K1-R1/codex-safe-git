@@ -30,8 +30,10 @@ Release tags must be semantic versions such as `v0.4.2`, and the tag should matc
 
 ```sh
 scripts/verify.sh
-sh scripts/check-dco.sh origin/main..HEAD
 ```
+
+For a release-candidate pull request, also run `sh scripts/check-dco.sh main..HEAD` before pushing or
+confirm that the required `signed-off` PR check has passed.
 
 For a public install smoke test before tagging, test the current remote commit:
 
@@ -51,8 +53,9 @@ git push origin v0.4.2
 If maintainer signing is already configured, use `git tag -s` instead of `git tag -a`.
 
 Create the GitHub release from the pushed tag. Use GitHub's generated release notes, then review and
-edit them before publishing. If binary assets are ever added and release immutability is enabled,
-create a draft first, attach assets, and publish only after the draft is complete.
+edit them before publishing. Label pull requests before release generation so changes land in the
+intended release-note categories. If binary assets are ever added and release immutability is
+enabled, create a draft first, attach assets, and publish only after the draft is complete.
 
 After publishing, verify the user-facing install path:
 

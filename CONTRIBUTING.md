@@ -14,6 +14,7 @@ Run the full local gate before proposing changes:
 
 ```sh
 scripts/verify.sh
+sh scripts/check-dco.sh main..HEAD
 ```
 
 For smaller loops:
@@ -57,6 +58,9 @@ To repair a local branch before opening a pull request:
 ```sh
 git rebase --signoff main
 ```
+
+GitHub also requires sign-off for web-based commits in this repository. The required PR status check
+is named `signed-off`; GitHub may display it as `dco / signed-off`.
 
 ## Pull Request Checklist
 

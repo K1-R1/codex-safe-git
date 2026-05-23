@@ -8,7 +8,10 @@ changes.
 
 ## Unreleased
 
-- No unreleased changes.
+- Added `CODEOWNERS` to make the active code-owner review rule concrete.
+- Tightened public maintenance, DCO, distribution, and release-process documentation after the first
+  public release.
+- Pruned internal readiness notes into a smaller repository maintenance checklist.
 
 ## 0.4.2 - Initial Public Release
 

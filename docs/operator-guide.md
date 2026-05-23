@@ -126,8 +126,8 @@ unexpected executable names, and untrusted `PATH` lookups.
 
 `main`, `master`, and the repository's configured `init.defaultBranch` are always protected. Add
 environment-specific production branch names with `CODEX_SAFE_GIT_PROTECTED_BRANCHES`, using a
-comma-separated list such as `trunk,develop,release/stable`. Protected branches cannot be commit targets, branch
-creation targets, or merge targets.
+comma-separated list such as `trunk,develop,release/stable`. Protected branches cannot be commit
+targets, branch creation targets, or merge targets.
 
 ## Landing Protected Branches
 
