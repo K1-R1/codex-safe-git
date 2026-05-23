@@ -676,6 +676,22 @@ func TestUnsafeGitExecutionConfigRefused(t *testing.T) {
 	}
 }
 
+func TestCommitFilesChecksExecutionConfigBeforeDeletedPathInspection(t *testing.T) {
+	repo := testrepo.New(t)
+	repo.Write("delete-me.txt", "delete\n")
+	if _, err := repo.Policy.CommitFiles(repo.Path, []string{"delete-me.txt"}, "Add delete-me", nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(repo.Abs("delete-me.txt")); err != nil {
+		t.Fatal(err)
+	}
+	repo.Run("config", "filter.bad.clean", "cat")
+
+	if _, err := repo.Policy.CommitFiles(repo.Path, []string{"delete-me.txt"}, "Delete file", nil); !hasReason(err, "execution-capable Git config") {
+		t.Fatalf("expected execution config refusal before path inspection, got %v", err)
+	}
+}
+
 func TestWorktreeMutationsFailClosedWhenAuditLogUnavailable(t *testing.T) {
 	repo := testrepo.New(t)
 	policy := rootAllowedPolicy(t, repo)

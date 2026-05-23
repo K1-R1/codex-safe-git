@@ -9,6 +9,10 @@ changes.
 ## Unreleased
 
 - Added `CODEOWNERS` to make the active code-owner review rule concrete.
+- Improved local DCO range inference for new branches without upstream tracking.
+- Hardened `commit_files` so execution-capable repository Git config is refused before tracked
+  deletion path inspection.
+- Linked the standalone Codex config example from the README docs index.
 - Tightened public maintenance, DCO, distribution, and release-process documentation after the first
   public release.
 - Pruned internal readiness notes into a smaller repository maintenance checklist.

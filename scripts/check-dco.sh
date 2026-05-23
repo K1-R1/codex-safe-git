@@ -3,6 +3,21 @@ set -eu
 
 range="${1:-${DCO_RANGE:-}}"
 
+default_branch_ref() {
+	ref="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)"
+	if [ -n "$ref" ] && git rev-parse --verify "$ref^{commit}" >/dev/null 2>&1; then
+		printf '%s\n' "$ref"
+		return
+	fi
+
+	for ref in main origin/main master origin/master; do
+		if git rev-parse --verify "$ref^{commit}" >/dev/null 2>&1; then
+			printf '%s\n' "$ref"
+			return
+		fi
+	done
+}
+
 if [ -z "$range" ]; then
 	base="${DCO_BASE_REF:-}"
 	head="${DCO_HEAD_REF:-HEAD}"
@@ -15,7 +30,14 @@ if [ -z "$range" ]; then
 		if [ -n "$upstream" ]; then
 			range="$upstream..HEAD"
 		else
-			range="HEAD"
+			current_branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+			default_ref="$(default_branch_ref)"
+			default_branch="${default_ref#origin/}"
+			if [ -n "$current_branch" ] && [ -n "$default_ref" ] && [ "$current_branch" != "$default_ref" ] && [ "$current_branch" != "$default_branch" ]; then
+				range="$default_ref..HEAD"
+			else
+				range="HEAD"
+			fi
 		fi
 	fi
 fi

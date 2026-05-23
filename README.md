@@ -110,6 +110,7 @@ scripts/verify.sh
 
 - [Getting started](docs/getting-started.md)
 - [Operator guide](docs/operator-guide.md)
+- [Codex config example](docs/codex-config-example.toml)
 - [MCP contract](docs/mcp-contract.md)
 - [Validation runbook](docs/validation-runbook.md)
 - [Audit policy](docs/audit-policy.md)
