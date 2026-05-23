@@ -66,7 +66,7 @@ mkdir -p "$HOME/.codex/worktrees" "$HOME/.codex/log"
 codex-safe-git-mcp --print-config
 ```
 
-For repeatable installs, use a release tag such as `@v0.4.2` instead of `@latest`.
+For repeatable installs, use a release tag such as `@v0.4.3` instead of `@latest`.
 
 If `$(go env GOPATH)/bin` is not on `PATH`, run the installed binary by absolute path. See
 [Distribution](docs/distribution.md) for the full public and source-tree install paths.

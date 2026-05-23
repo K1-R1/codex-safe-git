@@ -8,6 +8,8 @@ changes.
 
 ## Unreleased
 
+## 0.4.3 - Final Readiness Hardening
+
 - Added `CODEOWNERS` to make the active code-owner review rule concrete.
 - Improved local DCO range inference for new branches without upstream tracking.
 - Hardened `commit_files` so execution-capable repository Git config is refused before tracked

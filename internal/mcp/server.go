@@ -13,7 +13,7 @@ import (
 )
 
 const ProtocolVersion = "2025-11-25"
-const ServerVersion = "0.4.2"
+const ServerVersion = "0.4.3"
 const maxJSONRPCLineBytes = 1024 * 1024
 
 type Server struct {

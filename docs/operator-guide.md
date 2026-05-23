@@ -16,7 +16,7 @@ codex-safe-git-mcp --print-config
 For a pinned install, use a release tag:
 
 ```sh
-go install github.com/K1-R1/codex-safe-git/cmd/codex-safe-git-mcp@v0.4.2
+go install github.com/K1-R1/codex-safe-git/cmd/codex-safe-git-mcp@v0.4.3
 ```
 
 If the installed command is not on `PATH`, run it from `$(go env GOBIN)` when set, otherwise from

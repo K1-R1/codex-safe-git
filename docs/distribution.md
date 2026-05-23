@@ -14,7 +14,7 @@ go install github.com/K1-R1/codex-safe-git/cmd/codex-safe-git-mcp@latest
 For repeatable installs, prefer a release tag:
 
 ```sh
-go install github.com/K1-R1/codex-safe-git/cmd/codex-safe-git-mcp@v0.4.2
+go install github.com/K1-R1/codex-safe-git/cmd/codex-safe-git-mcp@v0.4.3
 ```
 
 `go install ...@version` is the right default for a dependency-free Go command because it builds the
@@ -45,7 +45,7 @@ Maintainers can validate the public install path with:
 
 ```sh
 scripts/smoke-public-install.sh latest
-scripts/smoke-public-install.sh v0.4.2
+scripts/smoke-public-install.sh v0.4.3
 ```
 
 ## Source-Tree Install
@@ -80,7 +80,7 @@ are explicitly decided.
 
 ## Release Tags
 
-For public use, prefer semver tags such as `v0.4.2`. `@latest` works best when it resolves to a
+For public use, prefer semver tags such as `v0.4.3`. `@latest` works best when it resolves to a
 deliberate release tag instead of an arbitrary default-branch pseudo-version.
 
 The local MCP `serverInfo.version` should match the intended public release tag unless the release is
