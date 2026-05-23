@@ -119,15 +119,13 @@ scripts/verify.sh
 - [Developer Certificate of Origin](DCO.md)
 - [Security invariants](docs/invariants.md)
 - [Threat model](docs/threat-model.md)
-- [Open-source release checklist](docs/open-source-release-checklist.md)
-- [Future work](docs/future-todo.md)
+- [Repository maintenance checklist](docs/repository-maintenance.md)
 
 ## Release Status
 
-This repository is prepared for public source releases through Go module tags. The initial public
-distribution path is `go install`; Homebrew/package-manager distribution, binary release assets,
-automated publishing, and external release services remain deferred until there is an explicit
-maintainer decision.
+This repository ships public source releases through Go module tags. The supported distribution path
+is `go install`; Homebrew/package-manager distribution, binary release assets, automated publishing,
+and external release services remain deferred until there is an explicit maintainer decision.
 
 ## Contributing
 
