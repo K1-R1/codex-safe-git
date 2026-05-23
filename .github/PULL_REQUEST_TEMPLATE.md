@@ -5,6 +5,7 @@
 ## Checklist
 
 - [ ] `scripts/verify.sh` passes locally, or the reason it was not run is documented.
+- [ ] Every commit includes a DCO `Signed-off-by` trailer.
 - [ ] MCP tool surface changes are intentional and reflected in docs, schemas, and golden tests.
 - [ ] Safety-sensitive changes include focused refusal-path or regression coverage.
 - [ ] Operator/security docs are updated when behaviour, configuration, or guarantees change.
