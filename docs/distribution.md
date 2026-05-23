@@ -51,7 +51,7 @@ scripts/smoke-public-install.sh v0.4.2
 ## Source-Tree Install
 
 Use source-tree installation when developing this repository, validating a release candidate, or
-installing from a private checkout before a public release tag is available:
+installing from a checkout before a public release tag is available:
 
 ```sh
 git clone https://github.com/K1-R1/codex-safe-git
@@ -66,12 +66,12 @@ sidecar checksum, creates the default `~/.codex/worktrees` root, and prints the 
 
 ## Not Recommended Initially
 
-Do not use a `curl | sh` installer for the initial public release. This tool exists to narrow Codex's
+Do not use a `curl | sh` installer. This tool exists to narrow Codex's
 local Git mutation surface, so asking users to pipe a remote shell script into `sh` would send the
 wrong trust signal. A reviewed source checkout or `go install ...@version` is clearer and easier to
 audit.
 
-Do not publish package-manager distribution in the initial release. Homebrew can be added later via a
+Do not publish package-manager distribution yet. Homebrew can be added later via a
 separate tap if there is real demand, but it adds another repository, formula review surface, and
 release automation to maintain.
 

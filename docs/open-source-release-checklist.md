@@ -1,13 +1,13 @@
-# Open Source Release Checklist
+# Open Source Maintenance Checklist
 
 This checklist separates local repository readiness from external actions that require maintainer
-intent, repository settings, credentials, or public support commitments.
+intent, repository settings, credentials, or public support commitments. Use it for release
+candidates, repository setting audits, and future public releases.
 
 ## Local Release Candidate
 
 - Run `scripts/verify.sh` on a clean branch.
-- Run `scripts/smoke-public-install.sh "$(git rev-parse origin/main)"` after the release candidate
-  is merged to `main`.
+- Run `sh scripts/check-dco.sh main..HEAD` before opening or updating a pull request.
 - Run `scripts/install-local.sh --dry-run`.
 - Run `scripts/install-local.sh`.
 - Run `scripts/install-local.sh --verify-install`.
@@ -19,14 +19,18 @@ intent, repository settings, credentials, or public support commitments.
 - Review `README.md`, `SECURITY.md`, `CONTRIBUTING.md`, `MAINTAINING.md`, and
   `docs/mcp-contract.md` for stale private-project wording.
 - Confirm generated artefacts, local binaries, audit logs, and personal paths are not tracked.
+- After a release candidate is merged to `main`, run
+  `scripts/smoke-public-install.sh "$(git rev-parse origin/main)"` before creating the release tag.
 
 ## GitHub Repository Settings
 
 - Set the repository description, website, topics, and licence metadata.
 - Enable branch protection or repository rulesets for `main`.
 - Require CI before merge. After checks have appeared at least once, require `verify
-  (ubuntu-latest)`, `verify (macos-latest)`, and `dco / signed-off`.
+  (ubuntu-latest)`, `verify (macos-latest)`, and `signed-off`. GitHub may display the last check as
+  `dco / signed-off`.
 - Require pull request review before protected-branch updates.
+- Keep `.github/CODEOWNERS` aligned with code-owner review requirements.
 - Disable force pushes and branch deletion on protected branches.
 - Enable the repository setting that requires contributors to sign off on web-based commits.
 - Enable Dependabot alerts and security updates.
@@ -38,7 +42,6 @@ intent, repository settings, credentials, or public support commitments.
 
 ## Public Support Commitments
 
-- Replace the pre-release security reporting text with the public reporting channel.
 - Decide which versions, branches, or tags receive security fixes.
 - Decide whether external contributors should be accepted immediately or after a stabilisation
   period.
@@ -59,7 +62,7 @@ intent, repository settings, credentials, or public support commitments.
 - Do not put signing keys, package tokens, or release credentials in the repository or Codex
   prompts.
 
-## Final Pre-Publish Review
+## Final Public Release Review
 
 - Re-run the local release candidate checks.
 - Review the full diff from the last private baseline.

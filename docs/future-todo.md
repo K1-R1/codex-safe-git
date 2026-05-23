@@ -134,8 +134,9 @@ approved `Add` decisions and are now part of the active tool contract.
 
 No implementation, verification, safety, token-efficiency, MCP-contract, or documentation completion
 items are currently open. Deferred release work includes future release tags, binary release assets,
-release signing, and any package-manager distribution. Use [Open Source Release Checklist](open-source-release-checklist.md)
-and [Release Process](release-process.md) for maintainer-owned external steps.
+release signing, automated publishing, and any package-manager distribution. Use
+[Open Source Maintenance Checklist](open-source-release-checklist.md) and
+[Release Process](release-process.md) for maintainer-owned external steps.
 
 ## Permanent Non-Goals
 

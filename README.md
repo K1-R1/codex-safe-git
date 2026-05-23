@@ -7,9 +7,8 @@
 surface. It is designed for safe local branch, worktree, status, review, and exact-file
 commit workflows without exposing arbitrary Git commands or shell execution.
 
-The server is local-first: no telemetry, no remotes, no network Git operations, and no
-package-manager distribution in this repository yet. Public installation uses Go's command
-installer.
+The server is local-first: no telemetry, no remotes, no network Git operations, no binary release
+assets, and no package-manager distribution. Public installation uses Go's command installer.
 
 ## Tool Surface
 
@@ -66,6 +65,8 @@ go install github.com/K1-R1/codex-safe-git/cmd/codex-safe-git-mcp@latest
 mkdir -p "$HOME/.codex/worktrees" "$HOME/.codex/log"
 codex-safe-git-mcp --print-config
 ```
+
+For repeatable installs, use a release tag such as `@v0.4.2` instead of `@latest`.
 
 If `$(go env GOPATH)/bin` is not on `PATH`, run the installed binary by absolute path. See
 [Distribution](docs/distribution.md) for the full public and source-tree install paths.
@@ -124,8 +125,9 @@ scripts/verify.sh
 ## Release Status
 
 This repository is prepared for public source releases through Go module tags. The initial public
-distribution path is `go install`; Homebrew/package-manager distribution, binary release assets, and
-external release services remain deferred until there is an explicit maintainer decision.
+distribution path is `go install`; Homebrew/package-manager distribution, binary release assets,
+automated publishing, and external release services remain deferred until there is an explicit
+maintainer decision.
 
 ## Contributing
 

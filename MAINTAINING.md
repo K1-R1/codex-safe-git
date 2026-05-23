@@ -9,6 +9,7 @@ Before promoting a build:
 
 ```sh
 scripts/verify.sh
+sh scripts/check-dco.sh main..HEAD
 scripts/smoke-public-install.sh "$(git rev-parse origin/main)"
 scripts/install-local.sh --dry-run
 scripts/install-local.sh
