@@ -1,0 +1,60 @@
+name: Bug report
+description: Report a reproducible defect in codex-safe-git.
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem. Do not include real secrets, tokens,
+        private keys, audit logs with sensitive metadata, or private repository contents.
+  - type: textarea
+    id: behaviour
+    attributes:
+      label: What happened?
+      description: Describe the observed behaviour and the behaviour you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      description: Use a disposable repository and synthetic data where possible.
+      placeholder: |
+        1. Configure ...
+        2. Run ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: codex-safe-git version
+      description: Use `self_check` or `scripts/install-local.sh --version` when available.
+      placeholder: "0.4.2"
+    validations:
+      required: false
+  - type: input
+    id: go-version
+    attributes:
+      label: Go version
+      placeholder: "go version go1.26.3 darwin/arm64"
+    validations:
+      required: false
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety impact
+      description: Note whether this affects allowlisting, path validation, secrets, audit logging, or mutation boundaries.
+    validations:
+      required: false

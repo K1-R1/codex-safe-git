@@ -31,6 +31,9 @@ Do not tag or publish a release during pre-release preparation work.
 
 ## Public Release Prep Still Deferred
 
+Use [docs/open-source-release-checklist.md](docs/open-source-release-checklist.md) as the release
+gate before changing repository visibility or accepting public support commitments.
+
 Before public release, decide:
 
 - repository visibility and support expectations

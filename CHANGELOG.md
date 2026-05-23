@@ -8,6 +8,8 @@ deferred until the project is published.
 ## Unreleased - Repository Preparation
 
 - Prepared repository metadata, CI, licence, security, contribution, and maintainer docs.
+- Added durable Codex repo instructions, GitHub issue and pull request templates, Dependabot
+  configuration, CodeQL scanning, and an open-source release checklist.
 - Preserved the 21-tool MCP surface and existing safety contract.
 - Kept local install as the only supported distribution path.
 

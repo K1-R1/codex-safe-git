@@ -40,3 +40,6 @@ scripts/smoke-stdio.sh
 - `scripts/verify.sh` passes.
 - Docs are updated when operator behaviour, security guarantees, or MCP contracts change.
 - No secrets, credentials, local personal paths, or generated artefacts are committed.
+
+Use the pull request template in `.github/PULL_REQUEST_TEMPLATE.md` for release-risk notes and
+verification details.

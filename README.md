@@ -1,6 +1,7 @@
 # codex-safe-git
 
 [![CI](https://github.com/K1-R1/codex-safe-git/actions/workflows/verify.yml/badge.svg)](https://github.com/K1-R1/codex-safe-git/actions/workflows/verify.yml)
+[![CodeQL](https://github.com/K1-R1/codex-safe-git/actions/workflows/codeql.yml/badge.svg)](https://github.com/K1-R1/codex-safe-git/actions/workflows/codeql.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 `codex-safe-git` is a local MCP server that gives Codex a narrow, auditable Git tool
@@ -103,13 +104,15 @@ scripts/verify.sh
 - [Local install integrity](docs/local-install-integrity.md)
 - [Security invariants](docs/invariants.md)
 - [Threat model](docs/threat-model.md)
+- [Open-source release checklist](docs/open-source-release-checklist.md)
 - [Future work](docs/future-todo.md)
 
 ## Release Status
 
 This repository is prepared for later public release while remaining unpublished. Public
 GitHub publishing, tags, Homebrew/package-manager distribution, and external service setup
-are intentionally deferred.
+are intentionally deferred. External release steps are tracked in the
+[open-source release checklist](docs/open-source-release-checklist.md).
 
 ## Contributing
 

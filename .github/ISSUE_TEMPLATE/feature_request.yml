@@ -1,0 +1,39 @@
+name: Feature request
+description: Propose a bounded local Git capability, docs improvement, or setup enhancement.
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The default stance is to keep the MCP surface closed. New capabilities need a clear local
+        safety model and should avoid remotes, destructive operations, arbitrary Git arguments, shell
+        execution, patch text, blob contents, and unbounded output.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user or operator problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed shape
+      description: Describe the smallest useful behaviour, inputs, and structured output.
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety model
+      description: Explain bounds, refusal paths, redaction, audit behaviour, and why existing tools are insufficient.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Include ways to solve this outside codex-safe-git.
+    validations:
+      required: false

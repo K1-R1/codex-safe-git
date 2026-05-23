@@ -15,7 +15,8 @@ same private channel used for project access. Do not include real secrets, token
 credential material in reports. Use synthetic examples and disposable repositories whenever possible.
 
 After public release, this file should be updated with the public reporting channel and any enabled
-GitHub private vulnerability reporting process.
+GitHub private vulnerability reporting process. The required public-release steps are tracked in
+[docs/open-source-release-checklist.md](docs/open-source-release-checklist.md).
 
 ## Scope
 

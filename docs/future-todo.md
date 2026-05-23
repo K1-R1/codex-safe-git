@@ -133,7 +133,9 @@ approved `Add` decisions and are now part of the active tool contract.
 The repository is prepared for later public release while remaining unpublished. No implementation,
 verification, safety, token-efficiency, MCP-contract, or documentation completion items are currently open.
 Deferred public release work includes repository publishing, support expectations, public security
-disclosure process, release tags, release signing, and any package-manager distribution.
+disclosure process, release tags, release signing, and any package-manager distribution. Use
+[Open Source Release Checklist](open-source-release-checklist.md) for those maintainer-owned
+external steps.
 
 ## Permanent Non-Goals
 
