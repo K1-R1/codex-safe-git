@@ -8,8 +8,8 @@ surface. It is designed for safe local branch, worktree, status, review, and exa
 commit workflows without exposing arbitrary Git commands or shell execution.
 
 The server is local-first: no telemetry, no remotes, no network Git operations, and no
-package-manager distribution in this repository yet. Public installation should use Go's command
-installer after the GitHub repository is published.
+package-manager distribution in this repository yet. Public installation uses Go's command
+installer.
 
 ## Tool Surface
 
@@ -59,7 +59,7 @@ See [MCP contract](docs/mcp-contract.md), [security invariants](docs/invariants.
 
 ## Install Locally
 
-After publication, users should install the command directly:
+Install the command directly:
 
 ```sh
 go install github.com/K1-R1/codex-safe-git/cmd/codex-safe-git-mcp@latest
@@ -113,6 +113,7 @@ scripts/verify.sh
 - [Validation runbook](docs/validation-runbook.md)
 - [Audit policy](docs/audit-policy.md)
 - [Distribution](docs/distribution.md)
+- [Release process](docs/release-process.md)
 - [Local install integrity](docs/local-install-integrity.md)
 - [Developer Certificate of Origin](DCO.md)
 - [Security invariants](docs/invariants.md)
@@ -122,10 +123,9 @@ scripts/verify.sh
 
 ## Release Status
 
-This repository is prepared for later public release while remaining unpublished. Public
-GitHub publishing, tags, Homebrew/package-manager distribution, and external service setup
-are intentionally deferred. External release steps are tracked in the
-[open-source release checklist](docs/open-source-release-checklist.md).
+This repository is prepared for public source releases through Go module tags. The initial public
+distribution path is `go install`; Homebrew/package-manager distribution, binary release assets, and
+external release services remain deferred until there is an explicit maintainer decision.
 
 ## Contributing
 

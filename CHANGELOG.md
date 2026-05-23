@@ -2,22 +2,29 @@
 
 All notable changes to `codex-safe-git` are recorded here.
 
-This project uses explicit version updates in the MCP server metadata. Public release tags are
-deferred until the project is published.
+This project uses explicit version updates in the MCP server metadata. Public release tags should
+match the MCP server version unless a release contains only documentation or repository setup
+changes.
 
-## Unreleased - Repository Preparation
+## Unreleased
+
+- No unreleased changes.
+
+## 0.4.2 - Initial Public Release
 
 - Prepared repository metadata, CI, licence, security, contribution, and maintainer docs.
 - Added durable Codex repo instructions, GitHub issue and pull request templates, Dependabot
   configuration, CodeQL scanning, and an open-source release checklist.
+- Added DCO enforcement and GitHub generated release-note configuration.
 - Pinned the Go toolchain directive to the current stable Go patch release.
 - Added binary CLI helpers for `--version`, `--help`, and `--print-config` to support `go install`
   distribution.
+- Added a public `go install` smoke test for release validation.
 - Preserved the 21-tool MCP surface and existing safety contract.
 - Planned public distribution through `go install ...@version` while keeping source-tree install for
   maintainers.
 
-## 0.4.2 - Completion Hardening
+### Completion Hardening
 
 - Added streaming bounded secret scans for new files.
 - Tightened exact commit path validation.

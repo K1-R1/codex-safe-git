@@ -1,0 +1,32 @@
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+      - duplicate
+      - invalid
+      - question
+      - wontfix
+  categories:
+    - title: Security And Safety
+      labels:
+        - security
+        - safety
+    - title: Features
+      labels:
+        - enhancement
+        - feature
+    - title: Fixes
+      labels:
+        - bug
+    - title: Documentation
+      labels:
+        - documentation
+        - docs
+    - title: Dependencies And Tooling
+      labels:
+        - dependencies
+        - github-actions
+        - go
+    - title: Other Changes
+      labels:
+        - "*"

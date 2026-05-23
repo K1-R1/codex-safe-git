@@ -6,17 +6,17 @@ or mutation boundaries.
 
 ## Supported Versions
 
-Until the first public release, security fixes target the current `main` branch.
+Security fixes target the latest public release and the current `main` branch until a broader
+support policy is published.
 
 ## Reporting
 
-Before public release, report suspected vulnerabilities directly to the repository owner through the
-same private channel used for project access. Do not include real secrets, tokens, private keys, or
-credential material in reports. Use synthetic examples and disposable repositories whenever possible.
+Use GitHub private vulnerability reporting for suspected vulnerabilities when available:
 
-After public release, this file should be updated with the public reporting channel and any enabled
-GitHub private vulnerability reporting process. The required public-release steps are tracked in
-[docs/open-source-release-checklist.md](docs/open-source-release-checklist.md).
+<https://github.com/K1-R1/codex-safe-git/security/advisories/new>
+
+Do not include real secrets, tokens, private keys, or credential material in reports. Use synthetic
+examples and disposable repositories whenever possible.
 
 ## Scope
 

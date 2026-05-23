@@ -5,13 +5,13 @@ maintainers and contributors.
 
 ## Recommended Public Install
 
-After the GitHub repository is public, the primary install command should be:
+The primary install command is:
 
 ```sh
 go install github.com/K1-R1/codex-safe-git/cmd/codex-safe-git-mcp@latest
 ```
 
-For a pinned install, use a release tag:
+For repeatable installs, prefer a release tag:
 
 ```sh
 go install github.com/K1-R1/codex-safe-git/cmd/codex-safe-git-mcp@v0.4.2
@@ -19,7 +19,8 @@ go install github.com/K1-R1/codex-safe-git/cmd/codex-safe-git-mcp@v0.4.2
 
 `go install ...@version` is the right default for a dependency-free Go command because it builds the
 published module directly and does not require users to clone the repository or run an installer
-script from the internet.
+script from the internet. Before the first release tag exists, `@latest` may resolve to a Go
+pseudo-version from the default branch; release-grade installs should use a semver tag.
 
 The installed command is written to `GOBIN` when set, otherwise to `$(go env GOPATH)/bin`. If that
 directory is not on `PATH`, run the command by absolute path:
@@ -40,10 +41,17 @@ mkdir -p "$HOME/.codex/worktrees" "$HOME/.codex/log"
 
 Then add the printed TOML block to the relevant Codex App or Codex CLI config and reload Codex.
 
+Maintainers can validate the public install path with:
+
+```sh
+scripts/smoke-public-install.sh latest
+scripts/smoke-public-install.sh v0.4.2
+```
+
 ## Source-Tree Install
 
 Use source-tree installation when developing this repository, validating a release candidate, or
-installing from a private checkout before publication:
+installing from a private checkout before a public release tag is available:
 
 ```sh
 git clone https://github.com/K1-R1/codex-safe-git
@@ -73,7 +81,7 @@ are explicitly decided.
 ## Release Tags
 
 For public use, prefer semver tags such as `v0.4.2`. `@latest` works best when it resolves to a
-deliberate release tag instead of an arbitrary default-branch commit.
+deliberate release tag instead of an arbitrary default-branch pseudo-version.
 
 The local MCP `serverInfo.version` should match the intended public release tag unless the release is
 only a documentation/setup change.

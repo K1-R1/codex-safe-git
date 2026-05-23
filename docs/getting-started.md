@@ -4,7 +4,7 @@ This guide is the shortest path to a local `codex-safe-git` install for Codex Ap
 
 ## Public Install
 
-After the GitHub repository is public, install the command with Go:
+Install the command with Go:
 
 ```sh
 go install github.com/K1-R1/codex-safe-git/cmd/codex-safe-git-mcp@latest
