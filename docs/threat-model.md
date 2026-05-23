@@ -1,4 +1,4 @@
-# Private Threat Model
+# Threat Model
 
 ## Assets
 
@@ -13,7 +13,7 @@
 - Codex prompts and repository content are untrusted inputs.
 - MCP config and allowed roots are trusted local operator configuration.
 - The local Git executable and operating system user account are trusted dependencies.
-- The audit log is local metadata and should remain user-private.
+- The audit log is local metadata and should remain visible only to the local operator.
 
 ## Primary Threats
 
@@ -62,5 +62,5 @@
 - A local attacker with the same user account can race filesystem changes or tamper with MCP config.
 - Secret detection is heuristic and not a complete DLP system.
 - A bad but policy-compliant commit can still be created on a non-default local branch.
-- Local checksum verification proves binary integrity, not authorship; private signing remains an
-  operator-controlled process outside Codex.
+- Local checksum verification proves binary integrity against the installer sidecar, not public
+  release authorship. Release signing remains a future maintainer decision outside Codex.

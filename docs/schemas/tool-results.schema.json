@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://local.invalid/codex-safe-git/tool-results.schema.json",
+  "$id": "https://github.com/K1-R1/codex-safe-git/blob/main/docs/schemas/tool-results.schema.json",
   "title": "Codex Safe Git Go MCP Tool Results",
   "oneOf": [
     {

@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"local/codex-safe-git/internal/audit"
-	"local/codex-safe-git/internal/secretcheck"
+	"github.com/K1-R1/codex-safe-git/internal/audit"
+	"github.com/K1-R1/codex-safe-git/internal/secretcheck"
 )
 
 type repoState struct {

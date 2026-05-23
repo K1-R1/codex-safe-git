@@ -1,0 +1,15 @@
+.DS_Store
+
+# Local build outputs
+/bin/
+/dist/
+/coverage.out
+/codex-safe-git-mcp
+
+# Local editor state
+/.idea/
+/.vscode/
+
+# Temporary verification output
+*.tmp
+*.log

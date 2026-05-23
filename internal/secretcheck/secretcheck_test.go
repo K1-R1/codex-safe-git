@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"local/codex-safe-git/internal/secretcheck"
+	"github.com/K1-R1/codex-safe-git/internal/secretcheck"
 )
 
 func TestSecretPaths(t *testing.T) {

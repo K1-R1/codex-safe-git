@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"local/codex-safe-git/internal/secretcheck"
+	"github.com/K1-R1/codex-safe-git/internal/secretcheck"
 )
 
 func (p Policy) normaliseFiles(repo string, files []string) ([]string, error) {

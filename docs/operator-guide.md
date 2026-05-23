@@ -1,7 +1,7 @@
 # Operator Guide
 
-This guide is for private or team-local use of the Go `codex-safe-git` MCP server with Codex App and
-Codex CLI.
+This guide covers local operation of the Go `codex-safe-git` MCP server with Codex App and Codex
+CLI.
 
 ## Install Or Update
 
@@ -29,7 +29,7 @@ Supported overrides:
 ```sh
 CODEX_HOME="$HOME/.codex" \
 CODEX_SAFE_GIT_INSTALL_DIR="$HOME/.codex/tools/codex-safe-git-go" \
-CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS="$HOME/.codex/worktrees:$HOME/personal/projects" \
+CODEX_SAFE_GIT_ALLOWED_REPO_ROOTS="$HOME/.codex/worktrees:$HOME/projects" \
 CODEX_SAFE_GIT_AUDIT_LOG="$HOME/.codex/log/codex-safe-git-audit.jsonl" \
 CODEX_SAFE_GIT_PROTECTED_BRANCHES="trunk,develop" \
 CODEX_SAFE_GIT_GIT_PATH="/usr/bin/git" \
@@ -48,8 +48,8 @@ Use `scripts/install-local.sh --verify-install` to verify the installed binary a
 sidecar checksum.
 
 By default, custom install directories must remain under `$CODEX_HOME/tools`. If you need a different
-private tool directory, set `CODEX_SAFE_GIT_ALLOW_EXTERNAL_INSTALL_DIR=1` and keep the path
-user-owned, narrow, and outside any project worktree.
+tool directory, set `CODEX_SAFE_GIT_ALLOW_EXTERNAL_INSTALL_DIR=1` and keep the path user-owned,
+narrow, and outside any project worktree.
 
 ## MCP Config
 
@@ -82,8 +82,8 @@ in. Each requested `repo_path` must still be an exact Git worktree root.
 Good examples:
 
 - `~/.codex/worktrees`
-- `~/personal/projects`
-- a team-local projects directory
+- `~/projects`
+- a dedicated projects directory
 
 Avoid:
 
@@ -99,15 +99,15 @@ roots.
 ## Git Executable
 
 By default the server accepts `git` only from narrow trusted install locations such as `/usr/bin`,
-Homebrew, MacPorts, or Nix store paths. If your team uses a different Git binary, set
+Homebrew, MacPorts, or Nix store paths. If your environment uses a different Git binary, set
 `CODEX_SAFE_GIT_GIT_PATH` to an absolute operator-controlled path. The server refuses relative paths,
 unexpected executable names, and untrusted `PATH` lookups.
 
 ## Protected Branches
 
 `main`, `master`, and the repository's configured `init.defaultBranch` are always protected. Add
-team-specific production branch names with `CODEX_SAFE_GIT_PROTECTED_BRANCHES`, using a comma-separated
-list such as `trunk,develop,release/stable`. Protected branches cannot be commit targets, branch
+environment-specific production branch names with `CODEX_SAFE_GIT_PROTECTED_BRANCHES`, using a
+comma-separated list such as `trunk,develop,release/stable`. Protected branches cannot be commit targets, branch
 creation targets, or merge targets.
 
 ## Landing Protected Branches
@@ -152,20 +152,20 @@ unavailable.
 `self_check.audit_log_writable` is a non-mutating path and permission check for operator visibility;
 it does not append to the audit log.
 
-See [Audit policy](audit-policy.md) for the private/team retention, review, and rotation policy.
+See [Audit policy](audit-policy.md) for retention, review, and rotation guidance.
 
-## Private Binary Integrity
+## Local Binary Integrity
 
 The installer writes a SHA-256 checksum beside the installed binary and verifies it immediately after
-build. Before copying a private binary between machines, copy both files and run:
+build. Before copying a local binary between machines, copy both files and run:
 
 ```sh
 scripts/install-local.sh --verify-install
 ```
 
-Checksum verification proves file integrity, not authorship. See
-[Private binary distribution](private-binary-distribution.md) for the signing strategy and manual key
-handling boundary.
+Checksum verification proves file integrity against the sidecar created at install time, not public
+release authorship. See [Local install integrity](local-install-integrity.md) for the current local
+install boundary.
 
 ## Troubleshooting
 

@@ -35,7 +35,7 @@ The MCP surface is exactly:
 - `create_worktree`
 - `safe_checkout`
 
-## Completed Private/Team Readiness
+## Completed Project Readiness
 
 - CI coverage is defined for formatting, vet, tests, race tests, installer checks, direct stdio MCP
   smoke tests, and safety regression cases.
@@ -44,9 +44,9 @@ The MCP surface is exactly:
   coverage.
 - The audit retention, review, and manual rotation policy is documented in
   [Audit policy](audit-policy.md).
-- Private/team onboarding is documented in [Team onboarding](team-onboarding.md).
-- Private binary integrity uses installer-generated SHA-256 checksums and `--verify-install`.
-- Private signing strategy is documented without requiring Codex to access signing keys.
+- Local onboarding is documented in [Getting started](getting-started.md).
+- Local install integrity uses installer-generated SHA-256 checksums and `--verify-install`.
+- Public release signing remains deferred without requiring Codex to access signing keys.
 - Protected-branch landing remains outside this MCP and is documented as a human-reviewed workflow.
 - The approved local branch, ref comparison, commit summary, path status, submodule summary,
   integrity check, reflog summary, and self-check tools are implemented as bounded read-only
@@ -61,7 +61,7 @@ non-goal because audit movement should remain operator-owned and visible.
 
 ## Capability Record
 
-### Implemented Private/Team Enhancements
+### Implemented Enhancements
 
 These features were selected because they are local, bounded, mostly read-only, and compatible with
 the existing fail-closed safety model:
@@ -130,11 +130,10 @@ approved `Add` decisions and are now part of the active tool contract.
 
 ## Remaining Work
 
-Only full open-source preparation remains deferred until explicitly approved. No private/team
-implementation, verification, safety, token-efficiency, MCP-contract, or documentation completion
-items are currently open. Future open-source work would include public release policy, public
-documentation polish, public support expectations, public licensing/release review, public security
-disclosure process, and any public distribution signing process.
+The repository is prepared for later public release while remaining unpublished. No implementation,
+verification, safety, token-efficiency, MCP-contract, or documentation completion items are currently open.
+Deferred public release work includes repository publishing, support expectations, public security
+disclosure process, release tags, release signing, and any package-manager distribution.
 
 ## Permanent Non-Goals
 

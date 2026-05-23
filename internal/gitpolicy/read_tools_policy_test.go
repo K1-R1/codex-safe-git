@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"local/codex-safe-git/internal/gitpolicy"
-	"local/codex-safe-git/internal/testrepo"
+	"github.com/K1-R1/codex-safe-git/internal/gitpolicy"
+	"github.com/K1-R1/codex-safe-git/internal/testrepo"
 )
 
 func TestReadOnlyBranchRefAndHistoryTools(t *testing.T) {

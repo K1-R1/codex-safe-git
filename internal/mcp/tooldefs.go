@@ -1,6 +1,6 @@
 package mcp
 
-import "local/codex-safe-git/internal/gitpolicy"
+import "github.com/K1-R1/codex-safe-git/internal/gitpolicy"
 
 func tools() []map[string]any {
 	return []map[string]any{

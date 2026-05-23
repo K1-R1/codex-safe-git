@@ -10,12 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	"local/codex-safe-git/internal/audit"
-	"local/codex-safe-git/internal/config"
-	"local/codex-safe-git/internal/gitexec"
-	"local/codex-safe-git/internal/gitpolicy"
-	"local/codex-safe-git/internal/mcp"
-	"local/codex-safe-git/internal/testrepo"
+	"github.com/K1-R1/codex-safe-git/internal/audit"
+	"github.com/K1-R1/codex-safe-git/internal/config"
+	"github.com/K1-R1/codex-safe-git/internal/gitexec"
+	"github.com/K1-R1/codex-safe-git/internal/gitpolicy"
+	"github.com/K1-R1/codex-safe-git/internal/mcp"
+	"github.com/K1-R1/codex-safe-git/internal/testrepo"
 )
 
 func TestToolSurfaceMatchesGoldenNames(t *testing.T) {

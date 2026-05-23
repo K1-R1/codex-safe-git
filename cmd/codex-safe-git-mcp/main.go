@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"local/codex-safe-git/internal/mcp"
+	"github.com/K1-R1/codex-safe-git/internal/mcp"
 )
 
 func main() {

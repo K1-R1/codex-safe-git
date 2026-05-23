@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"local/codex-safe-git/internal/audit"
-	"local/codex-safe-git/internal/config"
-	"local/codex-safe-git/internal/gitexec"
-	"local/codex-safe-git/internal/gitpolicy"
+	"github.com/K1-R1/codex-safe-git/internal/audit"
+	"github.com/K1-R1/codex-safe-git/internal/config"
+	"github.com/K1-R1/codex-safe-git/internal/gitexec"
+	"github.com/K1-R1/codex-safe-git/internal/gitpolicy"
 )
 
 type Repo struct {

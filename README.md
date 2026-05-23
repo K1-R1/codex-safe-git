@@ -1,11 +1,18 @@
-# Codex Safe Git
+# codex-safe-git
 
-`codex-safe-git` is the canonical Go implementation of the local safe Git MCP server for Codex App
-and Codex CLI. The earlier Python prototype has been removed after parity, App, and CLI validation.
+[![CI](https://github.com/K1-R1/codex-safe-git/actions/workflows/verify.yml/badge.svg)](https://github.com/K1-R1/codex-safe-git/actions/workflows/verify.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+`codex-safe-git` is a local MCP server that gives Codex a narrow, auditable Git tool
+surface. It is designed for safe local branch, worktree, status, review, and exact-file
+commit workflows without exposing arbitrary Git commands or shell execution.
+
+The server is local-first: no telemetry, no remotes, no network Git operations, and no
+package-manager distribution in this repository yet.
 
 ## Tool Surface
 
-The Go server must expose exactly:
+The Go server exposes exactly these MCP tools:
 
 - `git_status(repo_path)`
 - `git_diff_summary(repo_path)`
@@ -29,33 +36,35 @@ The Go server must expose exactly:
 - `create_worktree(repo_path, worktree_path, branch_name, base_branch?)`
 - `safe_checkout(repo_path, branch_name)`
 
-No tool accepts arbitrary Git arguments or shell commands.
+No tool accepts arbitrary Git arguments, shell commands, remotes, force options, push,
+pull, fetch, reset, clean, rebase, tag mutation, package publishing, deployment, or PR
+creation.
 
-Safety-critical guarantees include literal exact-file staging, strict exact-path syntax validation,
-symlink refusal for requested files, bounded streaming secret scans before staging, post-stage secret
-rescans, commit-message secret scanning, fail-closed audit checks for mutations, metadata-only audit
-records, trusted Git executable resolution, hard-bounded Git stdout/stderr capture, bounded stdio
-request handling, and protected branch refusal for `main`, `master`, repository defaults, and
-operator-configured production branch names. Worktree and checkout tools are local-only, refuse
-protected target branches, avoid remotes, and require clean state before mutating filesystem or
-branch checkout state. Read-only history, ref, path, submodule, integrity, reflog, and self-check
-tools return bounded structured summaries without patch text, blob contents, raw object dumps, audit
-writes, repair, fetch, clone, expiry, deletion, or remote mutation.
+## Safety Model
 
-## Local Verification
+Safety-critical guarantees include:
 
-Use the local Go 1.26+ toolchain:
+- explicit repo allowlisting and exact Git worktree-root validation
+- literal exact-file staging with strict path syntax checks
+- symlink, traversal, secret-bearing path, and ambiguous state refusal
+- bounded streaming secret scans before staging and staged-diff rescans before commit
+- protected branch refusal for `main`, `master`, repository defaults, and configured names
+- metadata-only audit records for mutating tools
+- bounded, structured, deterministic outputs for read-only tools
+- no patch text, blob contents, raw object dumps, or hidden local paths by default
+
+See [MCP contract](docs/mcp-contract.md), [security invariants](docs/invariants.md), and
+[threat model](docs/threat-model.md) for the durable guarantees.
+
+## Install Locally
+
+Run verification first:
 
 ```sh
 scripts/verify.sh
 ```
 
-This runs formatting, vet, normal tests, coverage-reporting tests, race tests, installer checks,
-checksum verification, and a direct stdio MCP smoke test.
-
-## First-Time Local Install
-
-After local tests pass:
+Then install the stable local binary and print the Codex MCP config:
 
 ```sh
 scripts/install-local.sh --dry-run
@@ -63,18 +72,53 @@ scripts/install-local.sh
 scripts/install-local.sh --verify-install
 ```
 
-The installer prints the minimal MCP config for Codex App and Codex CLI, writes a SHA-256 checksum
-beside the installed binary, and verifies that checksum. The production server should point to the
-stable installed binary, not this source worktree.
+The installer builds the Go binary, installs it under `~/.codex/tools/codex-safe-git-go`,
+writes a SHA-256 sidecar checksum, and prints a TOML config block for Codex App and Codex
+CLI.
 
-See:
+## Development
 
+Requirements:
+
+- Go 1.26+
+- Git
+- `shasum` or `sha256sum`
+
+Useful commands:
+
+```sh
+go test ./...
+go test -race ./...
+scripts/smoke-stdio.sh
+scripts/verify.sh
+```
+
+## Docs
+
+- [Getting started](docs/getting-started.md)
 - [Operator guide](docs/operator-guide.md)
 - [MCP contract](docs/mcp-contract.md)
 - [Validation runbook](docs/validation-runbook.md)
-- [Team onboarding](docs/team-onboarding.md)
 - [Audit policy](docs/audit-policy.md)
-- [Private binary distribution](docs/private-binary-distribution.md)
-- [Future TODO](docs/future-todo.md)
+- [Local install integrity](docs/local-install-integrity.md)
 - [Security invariants](docs/invariants.md)
-- [Private threat model](docs/threat-model.md)
+- [Threat model](docs/threat-model.md)
+- [Future work](docs/future-todo.md)
+
+## Release Status
+
+This repository is prepared for later public release while remaining unpublished. Public
+GitHub publishing, tags, Homebrew/package-manager distribution, and external service setup
+are intentionally deferred.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and contribution guidelines.
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for supported security reporting expectations.
+
+## License
+
+MIT - see [LICENSE](LICENSE).

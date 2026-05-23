@@ -11,6 +11,10 @@ fi
 if [ "$GOCACHE" != "off" ]; then
   mkdir -p "$GOCACHE"
 fi
+if [ -z "${GOMODCACHE:-}" ]; then
+  export GOMODCACHE="${TMPDIR:-/tmp}/codex-safe-git-go-mod-cache"
+fi
+mkdir -p "$GOMODCACHE"
 
 "$go_bin" fmt ./...
 "$go_bin" vet ./...

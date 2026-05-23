@@ -31,13 +31,13 @@ CLI.
   - `safe_checkout`
 - Use explicit allowed repos or allowed repo roots.
 - Use an explicit audit log path.
-- Configure extra production branch names with `CODEX_SAFE_GIT_PROTECTED_BRANCHES` when a team uses
-  names such as `trunk`, `develop`, or `release/stable`.
+- Configure extra production branch names with `CODEX_SAFE_GIT_PROTECTED_BRANCHES` when a repository
+  uses names such as `trunk`, `develop`, or `release/stable`.
 - Do not point active MCP config at a disposable worktree path.
 
 ## Local Go Verification
 
-From `codex-safe-git/`:
+From the repository root:
 
 ```sh
 scripts/verify.sh

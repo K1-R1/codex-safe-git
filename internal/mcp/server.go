@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"io"
 
-	"local/codex-safe-git/internal/config"
-	"local/codex-safe-git/internal/gitpolicy"
+	"github.com/K1-R1/codex-safe-git/internal/config"
+	"github.com/K1-R1/codex-safe-git/internal/gitpolicy"
 )
 
 const ProtocolVersion = "2025-11-25"

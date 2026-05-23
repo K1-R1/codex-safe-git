@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"local/codex-safe-git/internal/config"
+	"github.com/K1-R1/codex-safe-git/internal/config"
 )
 
 func TestFromEnvRequiresAllowlistAndAuditLog(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"local/codex-safe-git/internal/secretcheck"
+	"github.com/K1-R1/codex-safe-git/internal/secretcheck"
 )
 
 func (p Policy) CommitLogSummary(repoPath string, ref *string, limit *int) (CommitLogSummaryResult, error) {

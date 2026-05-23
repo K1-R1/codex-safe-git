@@ -1,13 +1,21 @@
-# Team Onboarding
+# Getting Started
 
-This guide is for private team use. It is not an open-source release checklist.
+This guide is the shortest path to a local `codex-safe-git` install for Codex App or Codex CLI.
 
-## Install
+## Verify
 
-From the source directory:
+From the repository root:
 
 ```sh
 scripts/verify.sh
+```
+
+The script runs formatting, vet, tests, coverage-reporting tests, race tests, installer checks,
+checksum verification, and direct stdio MCP smoke validation.
+
+## Install
+
+```sh
 scripts/install-local.sh --dry-run
 scripts/install-local.sh
 scripts/install-local.sh --verify-install
@@ -28,16 +36,13 @@ Prefer exact `CODEX_SAFE_GIT_ALLOWED_REPOS` entries for highly sensitive reposit
 `/`, `$HOME`, credential directories, wallet directories, shell profile directories, or broad
 cloud-sync roots.
 
-Create each configured root directory before rollout. Missing allowed roots are refused at server
-startup so a typo cannot silently change the intended scope.
-
 Every `repo_path` passed to the MCP must be an exact Git worktree root, even when it is under an
 allowed parent root.
 
 ## Configure Protected Branches
 
 `main`, `master`, and each repository's configured `init.defaultBranch` are protected automatically.
-Add team production branch names:
+Add extra production branch names when needed:
 
 ```toml
 CODEX_SAFE_GIT_PROTECTED_BRANCHES = "trunk,develop,release/stable"
@@ -80,4 +85,4 @@ Keep logs under a user-owned path such as `~/.codex/log/codex-safe-git-audit.jso
 ## Removal
 
 Disable or remove the MCP config entry first. Then remove the installed binary directory. Keep,
-archive, or delete audit logs according to the team retention policy.
+archive, or delete audit logs according to your local retention policy.

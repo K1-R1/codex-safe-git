@@ -1,6 +1,6 @@
 # Audit Policy
 
-This policy is for private or team-local deployments of `codex-safe-git`.
+This policy applies to local deployments of `codex-safe-git`.
 
 ## Record Contents
 
@@ -13,7 +13,7 @@ keychain material, shell profiles, environment dumps, wallet data, or private si
 
 ## Retention
 
-Default private/team retention is 90 days on the local machine unless a stricter team policy applies.
+Default local retention is 90 days on the local machine unless a stricter repository policy applies.
 For highly sensitive repositories, prefer shorter retention or exact per-repo audit logs with tighter
 filesystem permissions.
 
@@ -30,7 +30,7 @@ Recommended permissions:
 
 ## Review
 
-Review audit records after unusual refusals, before team rollout changes, and when investigating
+Review audit records after unusual refusals, before configuration changes, and when investigating
 unexpected local Git state. Focus on action type, repo path, branch path, refusal reason, and commit
 hash. Do not use audit logs as a substitute for source diff review.
 
@@ -43,7 +43,7 @@ operator.
 The safe rotation process is manual and operator-owned:
 
 1. Stop or disable the MCP server.
-2. Move the current audit file to a dated private archive path.
+2. Move the current audit file to a dated local archive path.
 3. Preserve permissions at `0600`.
 4. Start Codex again and confirm a new audit record can be written.
 5. Delete archived logs only after the retention window expires and only through the operator's
