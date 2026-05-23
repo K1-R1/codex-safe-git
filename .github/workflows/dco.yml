@@ -1,0 +1,32 @@
+name: dco
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      range:
+        description: Optional git revision range to check, such as main..HEAD.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  signed-off:
+    name: signed-off
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Check DCO sign-offs
+        env:
+          DCO_RANGE: ${{ inputs.range || '' }}
+          DCO_BASE_REF: ${{ github.event.pull_request.base.sha || '' }}
+          DCO_HEAD_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: sh scripts/check-dco.sh

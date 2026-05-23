@@ -22,11 +22,14 @@ intent, repository settings, credentials, or public support commitments.
 
 - Set the repository description, website, topics, and licence metadata.
 - Enable branch protection or repository rulesets for `main`.
-- Require CI before merge.
+- Require CI before merge. After checks have appeared at least once, require `verify
+  (ubuntu-latest)`, `verify (macos-latest)`, and `dco / signed-off`.
 - Require pull request review before protected-branch updates.
 - Disable force pushes and branch deletion on protected branches.
+- Enable the repository setting that requires contributors to sign off on web-based commits.
 - Enable Dependabot alerts and security updates.
-- Enable CodeQL/code scanning if available for the repository.
+- Enable CodeQL/code scanning if available for the repository. The CodeQL workflow is skipped while
+  the repository is private so private pre-release CI does not fail without GitHub Code Security.
 - Enable private vulnerability reporting before accepting public security reports.
 - Decide whether blank issues, discussions, and wiki pages should be enabled.
 

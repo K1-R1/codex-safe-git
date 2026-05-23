@@ -115,6 +115,7 @@ scripts/verify.sh
 - [Audit policy](docs/audit-policy.md)
 - [Distribution](docs/distribution.md)
 - [Local install integrity](docs/local-install-integrity.md)
+- [Developer Certificate of Origin](DCO.md)
 - [Security invariants](docs/invariants.md)
 - [Threat model](docs/threat-model.md)
 - [Open-source release checklist](docs/open-source-release-checklist.md)

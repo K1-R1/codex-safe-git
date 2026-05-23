@@ -34,10 +34,35 @@ scripts/smoke-stdio.sh
   branch mutation.
 - Add focused regression tests for new refusal paths, output bounds, and safety-sensitive edge cases.
 
+## Developer Certificate of Origin
+
+Every commit must include a Developer Certificate of Origin sign-off. The sign-off certifies that
+the contribution can be submitted under this repository's open source licence terms. See
+[DCO.md](DCO.md) for the project policy and link to the canonical DCO text.
+
+Create signed-off commits with:
+
+```sh
+git commit -s
+```
+
+To repair the most recent local commit:
+
+```sh
+git commit --amend --signoff --no-edit
+```
+
+To repair a local branch before opening a pull request:
+
+```sh
+git rebase --signoff main
+```
+
 ## Pull Request Checklist
 
 - The public tool contract remains intentional and documented.
 - `scripts/verify.sh` passes.
+- Every commit includes a `Signed-off-by` trailer.
 - Docs are updated when operator behaviour, security guarantees, or MCP contracts change.
 - No secrets, credentials, local personal paths, or generated artefacts are committed.
 
