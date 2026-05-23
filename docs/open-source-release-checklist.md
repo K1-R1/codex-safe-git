@@ -11,6 +11,8 @@ intent, repository settings, credentials, or public support commitments.
 - Run `scripts/install-local.sh --verify-install`.
 - Run an installed MCP `self_check` and confirm the server version, 21-tool surface, checksum
   status, audit-log status, and redacted allowlist metadata.
+- Confirm `go.mod` and GitHub Actions workflows use the latest stable Go/toolchain and supported
+  action major versions from official sources.
 - Review `README.md`, `SECURITY.md`, `CONTRIBUTING.md`, `MAINTAINING.md`, and
   `docs/mcp-contract.md` for stale private-project wording.
 - Confirm generated artefacts, local binaries, audit logs, and personal paths are not tracked.

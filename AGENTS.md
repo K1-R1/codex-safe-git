@@ -8,7 +8,7 @@ bounded outputs, and strong tests are more important than feature breadth.
 
 ## Working Rules
 
-- Use Go 1.26 or newer. The local reference toolchain is Go 1.26.3.
+- Use the Go toolchain declared in `go.mod`; it should track the latest stable Go patch release.
 - Keep the module dependency-free unless there is a clear, reviewed reason to add a dependency.
 - Prefer `codex_safe_git` tools for local Git status, diff summaries, branch preparation, worktrees,
   and exact-file commits. Use shell Git only for read-only detail that the MCP does not expose.

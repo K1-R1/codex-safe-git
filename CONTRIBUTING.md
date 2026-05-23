@@ -6,7 +6,7 @@ Thanks for helping make `codex-safe-git` safer and easier to operate.
 
 Requirements:
 
-- Go 1.26+
+- Go 1.26.3, or a compatible Go installation with automatic toolchain downloads enabled
 - Git
 - `shasum` or `sha256sum`
 
