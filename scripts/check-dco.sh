@@ -23,7 +23,7 @@ if [ -z "$range" ]; then
 	head="${DCO_HEAD_REF:-HEAD}"
 	if [ -n "$base" ]; then
 		range="$base..$head"
-	elif [ -n "${GITHUB_BASE_REF:-}" ]; then
+	elif [ -n "${GITHUB_BASE_REF:-}" ] && git rev-parse --verify "origin/${GITHUB_BASE_REF}^{commit}" >/dev/null 2>&1; then
 		range="origin/${GITHUB_BASE_REF}..HEAD"
 	else
 		upstream="$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)"
