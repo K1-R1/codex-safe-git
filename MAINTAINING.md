@@ -1,7 +1,7 @@
 # Maintaining
 
-This file records maintainer-only workflow notes for preparing `codex-safe-git` changes before a
-future public release.
+This file records maintainer-only workflow notes for preparing `codex-safe-git` changes and public
+source releases.
 
 ## Local Release Candidate Checks
 
@@ -9,6 +9,7 @@ Before promoting a build:
 
 ```sh
 scripts/verify.sh
+scripts/smoke-public-install.sh "$(git rev-parse origin/main)"
 scripts/install-local.sh --dry-run
 scripts/install-local.sh
 scripts/install-local.sh --verify-install
@@ -27,20 +28,12 @@ Then run a direct installed MCP `self_check` from Codex and confirm:
 Update `internal/mcp/server.go` when the MCP implementation version changes. Update the changelog
 and docs when the public contract, safety guarantees, or operator workflow changes.
 
-Do not tag or publish a release during pre-release preparation work.
+Release tags should be semantic versions such as `v0.4.2`. See
+[docs/release-process.md](docs/release-process.md) for the tag, release-note, and public install
+smoke-test workflow.
 
-## Public Release Prep Still Deferred
-
-Use [docs/open-source-release-checklist.md](docs/open-source-release-checklist.md) as the release
-gate before changing repository visibility or accepting public support commitments.
-
-Before public release, decide:
-
-- repository visibility and support expectations
-- public vulnerability reporting channel
-- release tagging and signing policy
-- whether any distribution beyond `go install ...@version` is worth supporting
-- public CI status badge targets and repository settings
+## Deferred Distribution Work
 
 Homebrew, package registries, `curl | sh` installers, binary release assets, and external release
-services are intentionally out of scope for the current pre-release preparation.
+services are intentionally out of scope until there is a separate maintainer decision covering
+signing, checksums, provenance, and support expectations.

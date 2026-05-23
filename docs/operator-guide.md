@@ -5,7 +5,7 @@ CLI.
 
 ## Public Install Or Update
 
-After the GitHub repository is public, install or update the command with Go:
+Install or update the command with Go:
 
 ```sh
 go install github.com/K1-R1/codex-safe-git/cmd/codex-safe-git-mcp@latest
@@ -187,6 +187,7 @@ release authorship. See [Local install integrity](local-install-integrity.md) fo
 install boundary.
 
 For public distribution policy, see [Distribution](distribution.md).
+For maintainer release steps, see [Release process](release-process.md).
 
 ## Troubleshooting
 

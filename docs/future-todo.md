@@ -46,8 +46,8 @@ The MCP surface is exactly:
   [Audit policy](audit-policy.md).
 - Local onboarding is documented in [Getting started](getting-started.md).
 - Local install integrity uses installer-generated SHA-256 checksums and `--verify-install`.
-- Public command distribution is planned through `go install ...@version`; source-tree install
-  remains available for maintainers.
+- Public command distribution uses `go install ...@version`; source-tree install remains available
+  for maintainers.
 - Public release signing remains deferred without requiring Codex to access signing keys.
 - Protected-branch landing remains outside this MCP and is documented as a human-reviewed workflow.
 - The approved local branch, ref comparison, commit summary, path status, submodule summary,
@@ -132,12 +132,10 @@ approved `Add` decisions and are now part of the active tool contract.
 
 ## Remaining Work
 
-The repository is prepared for later public release while remaining unpublished. No implementation,
-verification, safety, token-efficiency, MCP-contract, or documentation completion items are currently open.
-Deferred public release work includes repository publishing, support expectations, public security
-disclosure process, release tags, release signing, binary release assets, and any package-manager
-distribution. Use [Open Source Release Checklist](open-source-release-checklist.md) for those
-maintainer-owned external steps.
+No implementation, verification, safety, token-efficiency, MCP-contract, or documentation completion
+items are currently open. Deferred release work includes future release tags, binary release assets,
+release signing, and any package-manager distribution. Use [Open Source Release Checklist](open-source-release-checklist.md)
+and [Release Process](release-process.md) for maintainer-owned external steps.
 
 ## Permanent Non-Goals
 

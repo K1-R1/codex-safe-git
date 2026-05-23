@@ -6,6 +6,8 @@ intent, repository settings, credentials, or public support commitments.
 ## Local Release Candidate
 
 - Run `scripts/verify.sh` on a clean branch.
+- Run `scripts/smoke-public-install.sh "$(git rev-parse origin/main)"` after the release candidate
+  is merged to `main`.
 - Run `scripts/install-local.sh --dry-run`.
 - Run `scripts/install-local.sh`.
 - Run `scripts/install-local.sh --verify-install`.
@@ -50,6 +52,8 @@ intent, repository settings, credentials, or public support commitments.
 - Decide whether tags are signed, who signs them, and where signing policy is documented.
 - Create a semver tag that matches `internal/mcp/server.go` when publishing an implementation
   release.
+- Use [Release process](release-process.md) for release tags, generated release notes, and public
+  install smoke tests.
 - If binary releases are added, define checksums, provenance, and verification instructions before
   publishing.
 - Do not put signing keys, package tokens, or release credentials in the repository or Codex

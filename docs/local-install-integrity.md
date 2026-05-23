@@ -2,8 +2,7 @@
 
 `codex-safe-git` supports source-tree installation through `scripts/install-local.sh`. Public command
 installation should use `go install github.com/K1-R1/codex-safe-git/cmd/codex-safe-git-mcp@version`
-after the GitHub repository is published. Package-manager distribution and release signing remain
-deferred.
+from the public module. Package-manager distribution and binary release signing remain deferred.
 
 ## Integrity
 
