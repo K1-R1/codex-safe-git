@@ -2,6 +2,31 @@
 
 This guide is the shortest path to a local `codex-safe-git` install for Codex App or Codex CLI.
 
+## Public Install
+
+After the GitHub repository is public, install the command with Go:
+
+```sh
+go install github.com/K1-R1/codex-safe-git/cmd/codex-safe-git-mcp@latest
+mkdir -p "$HOME/.codex/worktrees" "$HOME/.codex/log"
+codex-safe-git-mcp --print-config
+```
+
+If the Go install directory is not on `PATH`, locate it with:
+
+```sh
+bin_dir="$(go env GOBIN)"
+if [ -z "$bin_dir" ]; then
+  bin_dir="$(go env GOPATH)/bin"
+fi
+"$bin_dir/codex-safe-git-mcp" --print-config
+```
+
+Use the printed config block in Codex App or Codex CLI, then reload Codex.
+
+See [Distribution](distribution.md) for the full public, pinned-version, and source-tree install
+policy.
+
 ## Verify
 
 From the repository root:
@@ -13,7 +38,7 @@ scripts/verify.sh
 The script runs formatting, vet, tests, coverage-reporting tests, race tests, installer checks,
 checksum verification, and direct stdio MCP smoke validation.
 
-## Install
+## Source-Tree Install
 
 ```sh
 scripts/install-local.sh --dry-run

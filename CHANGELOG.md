@@ -11,8 +11,11 @@ deferred until the project is published.
 - Added durable Codex repo instructions, GitHub issue and pull request templates, Dependabot
   configuration, CodeQL scanning, and an open-source release checklist.
 - Pinned the Go toolchain directive to the current stable Go patch release.
+- Added binary CLI helpers for `--version`, `--help`, and `--print-config` to support `go install`
+  distribution.
 - Preserved the 21-tool MCP surface and existing safety contract.
-- Kept local install as the only supported distribution path.
+- Planned public distribution through `go install ...@version` while keeping source-tree install for
+  maintainers.
 
 ## 0.4.2 - Completion Hardening
 

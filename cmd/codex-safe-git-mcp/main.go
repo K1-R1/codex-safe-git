@@ -7,5 +7,8 @@ import (
 )
 
 func main() {
+	if code, handled := handleArgs(os.Args[1:], os.Stdout, os.Stderr); handled {
+		os.Exit(code)
+	}
 	os.Exit(mcp.Main(os.Stdin, os.Stdout))
 }

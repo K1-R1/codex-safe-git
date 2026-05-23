@@ -1,7 +1,9 @@
 # Local Install Integrity
 
-`codex-safe-git` currently supports simple local installation through `scripts/install-local.sh`.
-Public releases, package-manager distribution, and release signing are deferred.
+`codex-safe-git` supports source-tree installation through `scripts/install-local.sh`. Public command
+installation should use `go install github.com/K1-R1/codex-safe-git/cmd/codex-safe-git-mcp@version`
+after the GitHub repository is published. Package-manager distribution and release signing remain
+deferred.
 
 ## Integrity
 
@@ -19,7 +21,8 @@ scripts/install-local.sh --verify-install
 ```
 
 The checksum proves local file integrity against the sidecar created at install time. It is not a
-public release signature and does not prove authorship.
+public release signature and does not prove authorship. Public `go install` users rely on the Go
+module download and checksum mechanisms plus the selected Git tag.
 
 ## Moving Builds
 

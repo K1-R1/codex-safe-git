@@ -3,7 +3,26 @@
 This guide covers local operation of the Go `codex-safe-git` MCP server with Codex App and Codex
 CLI.
 
-## Install Or Update
+## Public Install Or Update
+
+After the GitHub repository is public, install or update the command with Go:
+
+```sh
+go install github.com/K1-R1/codex-safe-git/cmd/codex-safe-git-mcp@latest
+mkdir -p "$HOME/.codex/worktrees" "$HOME/.codex/log"
+codex-safe-git-mcp --print-config
+```
+
+For a pinned install, use a release tag:
+
+```sh
+go install github.com/K1-R1/codex-safe-git/cmd/codex-safe-git-mcp@v0.4.2
+```
+
+If the installed command is not on `PATH`, run it from `$(go env GOBIN)` when set, otherwise from
+`$(go env GOPATH)/bin`.
+
+## Source-Tree Install Or Update
 
 From the `codex-safe-git` source directory:
 
@@ -166,6 +185,8 @@ scripts/install-local.sh --verify-install
 Checksum verification proves file integrity against the sidecar created at install time, not public
 release authorship. See [Local install integrity](local-install-integrity.md) for the current local
 install boundary.
+
+For public distribution policy, see [Distribution](distribution.md).
 
 ## Troubleshooting
 

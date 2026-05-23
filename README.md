@@ -9,7 +9,8 @@ surface. It is designed for safe local branch, worktree, status, review, and exa
 commit workflows without exposing arbitrary Git commands or shell execution.
 
 The server is local-first: no telemetry, no remotes, no network Git operations, and no
-package-manager distribution in this repository yet.
+package-manager distribution in this repository yet. Public installation should use Go's command
+installer after the GitHub repository is published.
 
 ## Tool Surface
 
@@ -59,7 +60,18 @@ See [MCP contract](docs/mcp-contract.md), [security invariants](docs/invariants.
 
 ## Install Locally
 
-Run verification first:
+After publication, users should install the command directly:
+
+```sh
+go install github.com/K1-R1/codex-safe-git/cmd/codex-safe-git-mcp@latest
+mkdir -p "$HOME/.codex/worktrees" "$HOME/.codex/log"
+codex-safe-git-mcp --print-config
+```
+
+If `$(go env GOPATH)/bin` is not on `PATH`, run the installed binary by absolute path. See
+[Distribution](docs/distribution.md) for the full public and source-tree install paths.
+
+For source-tree development, run verification first:
 
 ```sh
 scripts/verify.sh
@@ -101,6 +113,7 @@ scripts/verify.sh
 - [MCP contract](docs/mcp-contract.md)
 - [Validation runbook](docs/validation-runbook.md)
 - [Audit policy](docs/audit-policy.md)
+- [Distribution](docs/distribution.md)
 - [Local install integrity](docs/local-install-integrity.md)
 - [Security invariants](docs/invariants.md)
 - [Threat model](docs/threat-model.md)

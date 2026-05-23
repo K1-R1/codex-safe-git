@@ -39,8 +39,8 @@ Before public release, decide:
 - repository visibility and support expectations
 - public vulnerability reporting channel
 - release tagging and signing policy
-- whether any package-manager distribution is worth supporting
+- whether any distribution beyond `go install ...@version` is worth supporting
 - public CI status badge targets and repository settings
 
-Homebrew, package registries, and external release services are intentionally out of scope for the
-current pre-release preparation.
+Homebrew, package registries, `curl | sh` installers, binary release assets, and external release
+services are intentionally out of scope for the current pre-release preparation.

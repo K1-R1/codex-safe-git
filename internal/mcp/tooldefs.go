@@ -80,7 +80,7 @@ func tools() []map[string]any {
 	}
 }
 
-func toolNames() []string {
+func ToolNames() []string {
 	names := make([]string, 0, len(tools()))
 	for _, tool := range tools() {
 		if name, ok := tool["name"].(string); ok {

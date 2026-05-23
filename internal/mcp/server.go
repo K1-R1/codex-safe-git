@@ -340,7 +340,7 @@ func (s Server) callTool(raw json.RawMessage) toolPayload {
 		if err := decodeExact(params.Arguments, &args); err != nil {
 			return refusalPayload(err.Error())
 		}
-		payload, err = policy.SelfCheck(args.RepoPath, ServerVersion, ProtocolVersion, toolNames())
+		payload, err = policy.SelfCheck(args.RepoPath, ServerVersion, ProtocolVersion, ToolNames())
 	case "commit_files":
 		var args commitFilesArgs
 		if err := decodeExact(params.Arguments, &args); err != nil {

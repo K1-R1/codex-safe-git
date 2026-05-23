@@ -13,6 +13,7 @@ intent, repository settings, credentials, or public support commitments.
   status, audit-log status, and redacted allowlist metadata.
 - Confirm `go.mod` and GitHub Actions workflows use the latest stable Go/toolchain and supported
   action major versions from official sources.
+- Confirm `codex-safe-git-mcp --print-config` prints a usable config from an installed binary.
 - Review `README.md`, `SECURITY.md`, `CONTRIBUTING.md`, `MAINTAINING.md`, and
   `docs/mcp-contract.md` for stale private-project wording.
 - Confirm generated artefacts, local binaries, audit logs, and personal paths are not tracked.
@@ -35,13 +36,16 @@ intent, repository settings, credentials, or public support commitments.
 - Decide which versions, branches, or tags receive security fixes.
 - Decide whether external contributors should be accepted immediately or after a stabilisation
   period.
-- Decide whether package-manager distribution is in scope. Homebrew, registries, and install
-  scripts that fetch from the network remain deferred until explicitly approved.
+- Keep initial distribution to `go install ...@version` plus source-tree install for maintainers.
+  Homebrew, registries, and install scripts that fetch from the network remain deferred until
+  explicitly approved.
 
 ## Release And Provenance
 
 - Decide whether releases are source-only or include binaries.
 - Decide whether tags are signed, who signs them, and where signing policy is documented.
+- Create a semver tag that matches `internal/mcp/server.go` when publishing an implementation
+  release.
 - If binary releases are added, define checksums, provenance, and verification instructions before
   publishing.
 - Do not put signing keys, package tokens, or release credentials in the repository or Codex

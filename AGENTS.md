@@ -14,6 +14,8 @@ bounded outputs, and strong tests are more important than feature breadth.
   and exact-file commits. Use shell Git only for read-only detail that the MCP does not expose.
 - Do not run remote Git operations, package publishing, deploys, release tagging, destructive Git
   commands, or cloud/external mutations unless the user explicitly asks for that exact action.
+- Keep public distribution centred on `go install ...@version`; do not add `curl | sh`, Homebrew,
+  registries, or binary release automation without an explicit release-policy decision.
 - Do not read or commit secrets, credentials, private keys, shell profiles, keychains, wallets,
   `.env` files, audit logs, or generated local install artefacts.
 - Preserve user work. Never revert unrelated changes.
