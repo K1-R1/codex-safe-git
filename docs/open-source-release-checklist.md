@@ -28,8 +28,9 @@ intent, repository settings, credentials, or public support commitments.
 - Disable force pushes and branch deletion on protected branches.
 - Enable the repository setting that requires contributors to sign off on web-based commits.
 - Enable Dependabot alerts and security updates.
-- Enable CodeQL/code scanning if available for the repository. The CodeQL workflow is skipped while
-  the repository is private so private pre-release CI does not fail without GitHub Code Security.
+- Enable CodeQL/code scanning default setup if available for the repository. Do not add a CodeQL
+  Actions workflow while default setup is enabled; GitHub rejects advanced-configuration uploads in
+  that mode.
 - Enable private vulnerability reporting before accepting public security reports.
 - Decide whether blank issues, discussions, and wiki pages should be enabled.
 

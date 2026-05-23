@@ -1,7 +1,6 @@
 # codex-safe-git
 
 [![CI](https://github.com/K1-R1/codex-safe-git/actions/workflows/verify.yml/badge.svg)](https://github.com/K1-R1/codex-safe-git/actions/workflows/verify.yml)
-[![CodeQL](https://github.com/K1-R1/codex-safe-git/actions/workflows/codeql.yml/badge.svg)](https://github.com/K1-R1/codex-safe-git/actions/workflows/codeql.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 `codex-safe-git` is a local MCP server that gives Codex a narrow, auditable Git tool
